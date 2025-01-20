@@ -1,9 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
-import 'package:test/home_progress.dart';
+import 'package:test/locations/fire_script.dart';
+import 'package:test/locations/home_progress.dart';
 import 'package:test/models/reviews.dart' as review;
-import 'package:test/services/geolocator.dart';
+import 'package:test/locations/geolocator.dart';
 import 'package:test/user.dart';
 import 'package:provider/provider.dart';
 
@@ -15,9 +17,21 @@ import 'models/user_admin_page.dart';
 import 'services/splash.dart';
 import 'services/splash2.dart';
 import 'models/profile.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(); // Initialize Firebase
+
+  FirestoreDataUploader uploader = FirestoreDataUploader();
+
+  // Upload data to Firestore
+  await uploader.uploadSampleData();
+
+  // Exit the app after upload
+  print('Data upload completed.');
+
+  await signInAnonymously();
 
   // Initialize Hive for Flutter
   await Hive.initFlutter();
@@ -36,6 +50,14 @@ void main() async {
   );
 }
 
+Future<void> signInAnonymously() async {
+  try {
+    UserCredential userCredential = await FirebaseAuth.instance.signInAnonymously();
+    print('Signed in as: ${userCredential.user?.uid}');
+  } catch (e) {
+    print('Error during anonymous sign-in: $e');
+  }
+}
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 

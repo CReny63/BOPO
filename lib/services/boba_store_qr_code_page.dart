@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../models/boba_store.dart';
+import '../locations/boba_store.dart';
 
 class BobaStoreQRCodePage extends StatelessWidget {
   final BobaStore bobaStore;

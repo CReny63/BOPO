@@ -2,8 +2,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
-import '../models/boba_store.dart';
-//import 'geolocation_service.dart';
+import 'boba_store.dart';
 import 'geolocator.dart';
 
 class StoreService {

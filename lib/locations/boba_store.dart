@@ -7,6 +7,7 @@ class BobaStore {
   final String id;
   final double latitude;
   final double longitude;
+  final String city; 
 
   BobaStore({
     required this.name,
@@ -15,6 +16,7 @@ class BobaStore {
     required this.id,
     required this.latitude,
     required this.longitude,
+    required this.city, // Initialize city
   });
 
     factory BobaStore.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class BobaStore {
       qrData: json['qrData'],
       latitude: json['latitude'],
       longitude: json['longitude'],
+      city: json['city'],
     );
   }
 }
@@ -40,6 +43,7 @@ List<BobaStore> bobaStores = [
     id: '1',
     latitude: 33.130827,
     longitude: -117.227392,
+    city: 'San Marcos, CA',
   ),
   BobaStore(
     name: 'Bubble Tea',
@@ -48,14 +52,16 @@ List<BobaStore> bobaStores = [
     id: '2',
     latitude: 34.0522,
     longitude: -118.2437,
+     city: 'San Marcos, CA',
   ),
   BobaStore(
     name: 'Happy Lemon',
     imageName: 'happy_lemon',
     qrData: 'https://www.meta-verse.com/store/happy_lemon',
     id: '3',
-    latitude: 37.7749,
-    longitude: -122.4194,
+    latitude: 34.7749,
+    longitude: -118.4194,
+     city: 'San Marcos, CA',
   ),
   BobaStore(
     name: 'Kung Fu',
@@ -64,6 +70,7 @@ List<BobaStore> bobaStores = [
     id: '4',
     latitude: 1,
     longitude: 1,
+     city: 'San Marcos, CA',
   ),
   BobaStore(
     name: 'Nintai Tea',
@@ -72,6 +79,7 @@ List<BobaStore> bobaStores = [
     id: '5',
     latitude: 1,
     longitude: 1,
+     city: 'San Marcos, CA',
   ),
   BobaStore(
     name: 'Serenitea',
@@ -80,6 +88,7 @@ List<BobaStore> bobaStores = [
     id: '6',
     latitude: 1,
     longitude: 1,
+     city: 'San Marcos, CA',
   ),
   BobaStore(
     name: 'Tea Amo',
@@ -88,6 +97,7 @@ List<BobaStore> bobaStores = [
     id: '7',
     latitude: 1,
     longitude: 1,
+     city: 'San Marcos, CA',
   ),
   BobaStore(
     name: 'Vivi Tea',
@@ -96,6 +106,7 @@ List<BobaStore> bobaStores = [
     id: '8',
     latitude: 1,
     longitude: 1,
+     city: 'San Marcos, CA',
   ),
   BobaStore(
     
@@ -105,5 +116,6 @@ List<BobaStore> bobaStores = [
     id: '9',
     latitude: 33.130827,
     longitude: -117.227392,
+     city: 'San Marcos, CA',
   ),
 ];

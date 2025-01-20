@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "287856721611",
+    "project_id": "bopo-f6eeb",
+    "storage_bucket": "bopo-f6eeb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:287856721611:android:546c5f87e017246570a54e",
+        "android_client_info": {
+          "package_name": "com.example.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1TGTEIB8jcEOw7TWQoBLl_QWy0yWwpII"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
