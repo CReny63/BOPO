@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:test/locations/fire_script.dart';
@@ -22,6 +23,9 @@ import 'package:firebase_core/firebase_core.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); // Initialize Firebase
+
+  await GoogleSignIn().signOut();
+  await FirebaseAuth.instance.signOut();
 
   FirestoreDataUploader uploader = FirestoreDataUploader();
 

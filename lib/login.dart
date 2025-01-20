@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
-//import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/splash2.dart'; // Update paths if needed
+import '../services/splash2.dart'; // Update path if necessary
 import '../services/theme_provider.dart';
 
 class LoginPage extends StatefulWidget {
@@ -14,11 +15,31 @@ class LoginPage extends StatefulWidget {
   _LoginPageState createState() => _LoginPageState();
 }
 
+// Placeholder for Google Sign-In logic
+Future<UserCredential?> signInWithGoogle() async {
+  try {
+    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) return null; // User canceled the sign-in
+
+    final GoogleSignInAuthentication googleAuth =
+        await googleUser.authentication;
+
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    return await FirebaseAuth.instance.signInWithCredential(credential);
+  } catch (e) {
+    print('Error during Google Sign-In: $e');
+    return null;
+  }
+}
+
 class _LoginPageState extends State<LoginPage> {
   File? _image;
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  //final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -26,9 +47,6 @@ class _LoginPageState extends State<LoginPage> {
     _loadSavedCredentials();
   }
 
-  // -------------------------
-  //     LOAD / SAVE CREDS
-  // -------------------------
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     String? savedUsername = prefs.getString('username');
@@ -50,9 +68,6 @@ class _LoginPageState extends State<LoginPage> {
     await prefs.setString('email', email);
   }
 
-  // -------------------------
-  //         SIGN IN
-  // -------------------------
   Future<void> _handleSignIn() async {
     final prefs = await SharedPreferences.getInstance();
     String? savedUsername = prefs.getString('username');
@@ -61,8 +76,7 @@ class _LoginPageState extends State<LoginPage> {
     if (savedUsername == null || savedPassword == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No saved credentials. Please sign up first.'),
-        ),
+            content: Text('No saved credentials. Please sign up first.')),
       );
       return;
     }
@@ -72,7 +86,6 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sign In Successful!')),
       );
-      // Navigate to Splash2
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => Splash2()),
@@ -84,19 +97,12 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // -------------------------
-  //       VALIDATE PWD
-  // -------------------------
   bool _validatePassword(String password) {
-    // Must be >= 7 chars, include digit & special char
     final passwordRegex =
         RegExp(r'^(?=.*[!@#$%^&*(),.?":{}|<>])(?=.*\d).{7,}$');
     return passwordRegex.hasMatch(password);
   }
 
-  // -------------------------
-  //       SIGN UP DIALOG
-  // -------------------------
   void _showSignUpDialog() {
     final TextEditingController signUpUsernameController =
         TextEditingController();
@@ -116,16 +122,9 @@ class _LoginPageState extends State<LoginPage> {
               content: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // Profile Image Picker
                     GestureDetector(
                       onTap: () async {
-                        // final XFile? pickedFile = await _picker.pickImage(
-                        //     source: ImageSource.gallery);
-                        // if (pickedFile != null) {
-                        //   setStateDialog(() {
-                        //     _image = File(pickedFile.path);
-                        //   });
-                        // }
+                        // Implement image picker logic here if needed
                       },
                       child: CircleAvatar(
                         radius: 40,
@@ -186,51 +185,34 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    // Basic field checks
                     if (signUpUsernameController.text.isEmpty ||
                         emailController.text.isEmpty ||
                         signUpPasswordController.text.isEmpty ||
                         confirmPasswordController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('All fields are required.'),
-                        ),
+                            content: Text('All fields are required.')),
                       );
                       return;
                     }
-                    // Password validation
                     if (!_validatePassword(signUpPasswordController.text)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Password must be at least 7 characters, '
-                            'include 1 digit and 1 special character.',
-                          ),
+                              'Password must be at least 7 characters, include 1 digit and 1 special character.'),
                         ),
                       );
                       return;
                     }
-                    // Confirm password match
                     if (signUpPasswordController.text !=
                         confirmPasswordController.text) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Passwords do not match.'),
-                        ),
+                            content: Text('Passwords do not match.')),
                       );
                       return;
                     }
-                    // Profile picture check
-                    // if (_image == null) {
-                    //   ScaffoldMessenger.of(context).showSnackBar(
-                    //     const SnackBar(
-                    //       content: Text('Please select a profile picture.'),
-                    //     ),
-                    //   );
-                    //   return;
-                    // }
 
-                    //Save user credentials
                     await _saveCredentials(
                       signUpUsernameController.text,
                       signUpPasswordController.text,
@@ -242,7 +224,6 @@ class _LoginPageState extends State<LoginPage> {
                       const SnackBar(content: Text('Sign Up Successful!')),
                     );
 
-                    // Navigate to Splash2
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (context) => Splash2()),
@@ -258,13 +239,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // -------------------------
-  //         BUILD UI
-  // -------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Gradient AppBar
       appBar: AppBar(
         flexibleSpace: Container(
           decoration: const BoxDecoration(
@@ -284,23 +261,19 @@ class _LoginPageState extends State<LoginPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-
-      // Milk Tea-like background
       body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color.fromARGB(255, 219, 191, 167), // Lighter milk-tea shade
-              Color.fromARGB(255, 138, 103, 80), // Darker milk-tea shade
+              Color.fromARGB(255, 219, 191, 167),
+              Color.fromARGB(255, 138, 103, 80),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
-
-        // Use SingleChildScrollView + Center + Column for a consistent, centered layout
         child: SingleChildScrollView(
           child: Center(
             child: Padding(
@@ -308,9 +281,8 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Container for username + password
                   Container(
-                    width: 280, // narrower width
+                    width: 280,
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.75),
@@ -320,7 +292,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     child: Column(
                       children: [
-                        // Username
                         TextField(
                           controller: usernameController,
                           decoration: const InputDecoration(
@@ -329,8 +300,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-
-                        // Password
                         TextField(
                           controller: passwordController,
                           obscureText: true,
@@ -340,8 +309,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 10),
-
-                        // Forgot Password link
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -357,11 +324,7 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                   ),
-
-                  // Gap between container and buttons
                   const SizedBox(height: 20),
-
-                  //Sign-In Button
                   SizedBox(
                     width: 280,
                     child: ElevatedButton(
@@ -380,8 +343,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Sign-Up Button
                   SizedBox(
                     width: 280,
                     child: ElevatedButton(
@@ -396,6 +357,67 @@ class _LoginPageState extends State<LoginPage> {
                       child: const Text(
                         'Sign-Up',
                         style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Google Sign-In Button
+                  SizedBox(
+                    width: 280,
+                    child: ElevatedButton(
+                  onPressed: () async {
+  // Show loading dialog
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => Center(child: CircularProgressIndicator()),
+  );
+
+  UserCredential? userCredential = await signInWithGoogle();
+
+  // Hide loading dialog
+  Navigator.of(context).pop();
+
+  if (userCredential != null) {
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => Splash2(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final fadeTween = Tween(begin: 0.0, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeInOut));
+          return FadeTransition(
+            opacity: animation.drive(fadeTween),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Google Sign-In failed')),
+    );
+  }
+},
+
+
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.login, color: Colors.black),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Continue with Google',
+                            style: TextStyle(fontSize: 16, color: Colors.black),
+                          ),
+                        ],
                       ),
                     ),
                   ),
