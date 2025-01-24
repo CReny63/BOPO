@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/firestore.dart';
 import 'package:test/locations/geolocator.dart';
+import 'package:test/locations/nearby_stores.dart';
+import 'package:test/widgets/Greeting.dart';
 // import 'package:test/models/boba_store.dart';
 // import 'package:test/services/geolocation_service.dart';
-import 'package:test/widgets/circular_layout.dart';
+//import 'package:test/widgets/circular_layout.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:test/widgets/carousel_widget.dart';
 import 'package:test/widgets/chatbot_popup.dart';
@@ -63,7 +66,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   Future<void> fetchFirestoreData() async {
   try {
     final QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('stores')
+        .collection('stores') //get stores
         .where('city', isEqualTo: userCity) // Match user's city
         .get();
 
@@ -108,22 +111,29 @@ class HomeWithProgressState extends State<HomeWithProgress> {
 }
 
 
-   Future<void> _sortStoresByDistance() async {
+Future<void> _sortStoresByDistance() async {
   try {
     Position userPosition = await _geoService.determinePosition();
     _lastKnownPosition = userPosition;
+    
+    // Directly retrieve and assign the city since it's non-nullable
     userCity = await _geoService.getCityFromPosition(userPosition);
 
-    // Call _fetchStoresByCity here
+    // Fetch stores using the determined city
     await _fetchStoresByCity(userCity);
 
     // Sort stores by distance
     _sortStoresByDistanceWithPosition(userPosition);
   } catch (e) {
-    print('Error determining position or sorting stores: $e');
+    if (kDebugMode) {
+      print('Error determining position or sorting stores: $e');
+    }
   }
 }
 
+
+
+//based on users location present stores nearby to user.
   void _sortStoresByDistanceWithPosition(Position userPosition) {
     sortedStores.sort((a, b) {
       double distanceA = Geolocator.distanceBetween(
@@ -155,43 +165,15 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     setState(() {}); // Update UI after sorting/filtering
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // Calculate responsive radius based on screen size
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final double radius = min(screenWidth, screenHeight) / 4;
+ @override
+Widget build(BuildContext context) {
+  // Calculate responsive radius based on screen size
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final double screenHeight = MediaQuery.of(context).size.height;
+  final double radius = min(screenWidth, screenHeight) / 4;
 
-    // Wait until we have a valid user position before building the main UI
-    if (_lastKnownPosition == null) {
-      return Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(75),
-          child: AppBarContent(
-            toggleTheme: widget.toggleTheme,
-            isDarkMode: widget.isDarkMode,
-          ),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // Greeting and date functions
-    String getGreeting() {
-      final hour = DateTime.now().hour;
-      if (hour < 12) return 'Good Morning';
-      if (hour < 17) return 'Good Afternoon';
-      return 'Good Evening';
-    }
-
-    String getCurrentDate() {
-      final now = DateTime.now();
-      return '${now.month}/${now.day}/${now.year}';
-    }
-
-    final String greeting = getGreeting();
-    final String currentDate = getCurrentDate();
-
+  // Wait until we have a valid user position before building the main UI
+  if (_lastKnownPosition == null) {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
@@ -200,90 +182,76 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           isDarkMode: widget.isDarkMode,
         ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                greeting,
-                style: TextStyle(
-                  fontSize: 21,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                  fontFamily: 'Roboto',
-                ),
-              ),
-              Text(
-                currentDate,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                ),
-              ),
-              const SizedBox(height: 100),
-              Center(
-                child: CircularLayout(
-                  radius: radius,
-                  centralWidget: Container(
-                    width: radius,
-                    height: radius,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.transparent,
-                      border: Border.all(color: Colors.black, width: 2),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.location_city,
-                          size: radius / 4,
-                          color: Colors.black,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          userCity,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                  bobaStores: sortedStores,
-                  userPosition: _lastKnownPosition!,
-                  maxDistanceThreshold: 50000,
-                ),
-              ),
-              const SizedBox(height: 100),
-              Center(child: CarouselWidget()),
-              const SizedBox(height: 120),
-              const PromoBanner(),
-              const SizedBox(height: 30),
-              const SocialMediaLinks(),
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => const ChatbotPopup(),
-          );
-        },
-        backgroundColor:
-            Theme.of(context).floatingActionButtonTheme.backgroundColor,
-        child: const Icon(Icons.chat),
-      ),
-      bottomNavigationBar: buildBottomNavBar(context),
+      body: const Center(child: CircularProgressIndicator()),
     );
   }
+
+  // Greeting and date functions
+  String greeting = getGreeting();
+  String currentDate = getCurrentDate();
+
+  return Scaffold(
+    appBar: PreferredSize(
+      preferredSize: const Size.fromHeight(75),
+      child: AppBarContent(
+        toggleTheme: widget.toggleTheme,
+        isDarkMode: widget.isDarkMode,
+      ),
+    ),
+    body: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            Text(
+              greeting,
+              style: TextStyle(
+                fontSize: 21,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+                fontFamily: 'Roboto',
+              ),
+            ),
+            Text(
+              currentDate,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Replace CircularLayout with NearbyStoresWidget
+              SizedBox(
+                height: 400,  // adjust height as needed
+                child: NearbyStoresWidget(),
+              ),
+            // You can keep other widgets like CarouselWidget, PromoBanner, etc. below
+            const SizedBox(height: 100),
+            Center(child: CarouselWidget()),
+            const SizedBox(height: 120),
+            const PromoBanner(),
+            const SizedBox(height: 30),
+            const SocialMediaLinks(),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    ),
+    floatingActionButton: FloatingActionButton(
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (context) => const ChatbotPopup(),
+        );
+      },
+      backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
+      child: const Icon(Icons.chat),
+    ),
+    bottomNavigationBar: buildBottomNavBar(context),
+  );
+}
+
 
   Widget buildBottomNavBar(BuildContext context) {
     return BottomAppBar(

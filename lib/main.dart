@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:test/locations/fire_script.dart';
+import 'package:test/locations/firestore.dart';
 import 'package:test/locations/home_progress.dart';
 import 'package:test/models/reviews.dart' as review;
 import 'package:test/locations/geolocator.dart';
@@ -22,15 +23,30 @@ import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(); // Initialize Firebase
 
-  await GoogleSignIn().signOut();
-  await FirebaseAuth.instance.signOut();
+  FirestoreService firestoreService = FirestoreService();
+  
+  // Add a store
+  await firestoreService.addStore(
+    name: "Bubble Tea",
+    city: "San Marcos",
+    state: "CA",
+    imagename: "bubble_tea",
+    qrdata: "https://example.com",
+    latitude: 34.0522,
+    longitude: -118.2437,
+  );
+
+  await GoogleSignIn().signOut(); //automatically sign out user after every restart
+
+  await FirebaseAuth.instance.signOut(); //automatically sign out of firebase after every restart
 
   FirestoreDataUploader uploader = FirestoreDataUploader();
 
   // Upload data to Firestore
-  await uploader.uploadSampleData();
+  await uploader.uploadSampleData(); //firebase sample database
 
   // Exit the app after upload
   print('Data upload completed.');

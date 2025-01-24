@@ -45,7 +45,7 @@ dependencies:
   shared_preferences: any
   geolocator: ^9.0.0
   geocoding: ^2.0.0
-  
+  geoflutterfire_plus: ^0.0.32
   firebase_core: ^3.10.0
   cloud_firestore: ^5.6.1
   google_sign_in: ^6.2.2
@@ -66,6 +66,8 @@ dev_dependencies:
   carousel_slider: ^5.0.0
   hive_generator: ^2.0.1 # For generating TypeAdapters
   build_runner: ^2.1.5 # For running code generation commands
+  flutter_launcher_icons: ^0.14.3
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -73,6 +75,13 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
+flutter_launcher_icons:
+ android: true
+ ios: true
+ image_path: "assets/BOPO.png"
+ remove_alpha_ios: true
+
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -97,6 +106,7 @@ flutter:
     - assets/tea_amo.png
     - assets/vivi_tea.png
     - assets/sharetealogo.png
+    - assets/BOPO.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
