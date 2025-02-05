@@ -1,8 +1,10 @@
-// lib/services/geolocation_service.dart
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';  // Import geocoding package
 
 class GeolocationService {
+  /// Determines the current position.
   Future<Position> determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -28,19 +30,24 @@ class GeolocationService {
     return await Geolocator.getCurrentPosition();
   }
 
-  Future<String> getCityFromPosition(Position position) async {
+  /// Reverse geocodes the given position and returns a combined string with city and state.
+  Future<String> getLocationText(Position position) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
       if (placemarks.isNotEmpty) {
-        // Return the locality (city) from the first Placemark
-        return placemarks.first.locality ?? 'Unknown City';
+        // Use administrativeArea for state.
+        final String city = placemarks.first.locality ?? 'Unknown City';
+        final String state = placemarks.first.administrativeArea ?? 'Unknown State';
+        return '$city, $state';
       }
     } catch (e) {
-      print('Error in reverse geocoding: $e');
+      if (kDebugMode) {
+        print('Error in reverse geocoding: $e');
+      }
     }
-    return 'Unknown City';
+    return 'Unknown Location';
   }
 }

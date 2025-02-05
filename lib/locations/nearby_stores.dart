@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import 'package:test/locations/boba_store.dart';
+import 'package:test/locations/geolocator.dart';
+import 'package:test/widgets/circular_layout.dart'; // Use the updated circular layout
 
 class NearbyStoresWidget extends StatefulWidget {
   @override
@@ -10,18 +13,31 @@ class NearbyStoresWidget extends StatefulWidget {
 
 class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
   // Your Realtime Database endpoint (with .json)
-  final String apiEndpoint ='https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';
+  final String apiEndpoint = 'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';
   List<BobaStore> stores = [];
   bool isLoading = true;
+  Position? userPosition;
+  String userLocationText = 'Your Location'; // Placeholder
+  final GeolocationService _geoService = GeolocationService();
+
 
   @override
   void initState() {
     super.initState();
-    fetchStores();
+    _fetchUserPositionAndStores();
   }
 
-  Future<void> fetchStores() async {
+  Future<void> _fetchUserPositionAndStores() async {
     try {
+      // First, get the user's current position.
+      userPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      
+       // Dynamically fetch the user's location text (city and state).
+    userLocationText = await _geoService.getLocationText(userPosition!);
+
+      // Then, fetch the stores from your Realtime Database.
       final url = Uri.parse(apiEndpoint);
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -35,10 +51,9 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
             }
           });
         } else if (decoded is List) {
-          // Handle case where data is returned as a List
+          // Handle case where data is returned as a List.
           for (var item in decoded) {
             if (item is Map<String, dynamic>) {
-              // Since there is no key, you can pass an empty string or use an index
               fetchedStores.add(BobaStore.fromJson('', item));
             }
           }
@@ -51,32 +66,28 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
         throw Exception('Failed to load stores');
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      setState(() {
+        isLoading = false;
+      });
       print('Error fetching stores from Realtime Database: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
+    if (isLoading || userPosition == null) {
       return Center(child: CircularProgressIndicator());
     }
     if (stores.isEmpty) {
       return Center(child: Text('No stores found.'));
     }
-    return ListView.builder(
-      itemCount: stores.length,
-      itemBuilder: (context, index) {
-        final store = stores[index];
-        return ListTile(
-          title: Text(store.name),
-          subtitle: Text('${store.city}, ${store.state}'),
-        );
-      },
+    // Use the CircularLayout widget to display the stores.
+    return CircularLayout(
+      radius: 100, // Adjust the size as needed.
+      bobaStores: stores,
+      userPosition: userPosition!,
+      maxDistanceThreshold: 5000, // e.g., 5000 meters (5 km)
+      userLocationText: userLocationText,
     );
   }
 }

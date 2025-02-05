@@ -27,18 +27,6 @@ void main() async {
 
   await Firebase.initializeApp(); // Initialize Firebase
 
- // Use firebase_database instead of Firestore:
-  final DatabaseReference dbRef = FirebaseDatabase.instance.ref();
-  await dbRef.child('stores').child('1').set({
-    'name': 'Bubble Tea',
-    'city': 'San Marcos',
-    'state': 'CA',
-    'imagename': 'bubble_tea',
-    'qrdata': 'https://example.com',
-    'lat': 34.0522,
-    'lng': -118.2437,
-  });
-
   await GoogleSignIn()
       .signOut(); //automatically sign out user after every restart
 

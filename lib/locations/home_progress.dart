@@ -87,7 +87,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
       _lastKnownPosition = userPosition;
 
       // Retrieve the city name from the user's position.
-      city = await _geoService.getCityFromPosition(userPosition);
+      city = await _geoService.getLocationText(userPosition);
 
       // Fetch stores from the Realtime Database.
       await _fetchStores();
@@ -192,27 +192,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                 child:
                     NearbyStoresWidget(), // Ensure this widget reads from sortedStores
               ),
-              CircularLayout(
-                radius: 100, // Example value; adjust as needed
-                centralWidget: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blueAccent,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Central',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-                bobaStores: sortedStores, // Your list of stores
-                userPosition:
-                    _lastKnownPosition!, // User's position (ensure it's non-null)
-                maxDistanceThreshold: 5000, // e.g., 5000 meters (5 km)
-              ),
+
               const SizedBox(height: 100),
               Center(child: CarouselWidget()),
               const SizedBox(height: 120),
