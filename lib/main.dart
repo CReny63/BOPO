@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive/hive.dart';
@@ -26,32 +27,33 @@ void main() async {
 
   await Firebase.initializeApp(); // Initialize Firebase
 
-  FirestoreService firestoreService = FirestoreService();
-  
-  // Add a store
-  await firestoreService.addStore(
-    name: "Bubble Tea",
-    city: "San Marcos",
-    state: "CA",
-    imagename: "bubble_tea",
-    qrdata: "https://example.com",
-    latitude: 34.0522,
-    longitude: -118.2437,
-  );
+ // Use firebase_database instead of Firestore:
+  final DatabaseReference dbRef = FirebaseDatabase.instance.ref();
+  await dbRef.child('stores').child('1').set({
+    'name': 'Bubble Tea',
+    'city': 'San Marcos',
+    'state': 'CA',
+    'imagename': 'bubble_tea',
+    'qrdata': 'https://example.com',
+    'lat': 34.0522,
+    'lng': -118.2437,
+  });
 
-  await GoogleSignIn().signOut(); //automatically sign out user after every restart
+  await GoogleSignIn()
+      .signOut(); //automatically sign out user after every restart
 
-  await FirebaseAuth.instance.signOut(); //automatically sign out of firebase after every restart
+  await FirebaseAuth.instance
+      .signOut(); //automatically sign out of firebase after every restart
 
-  FirestoreDataUploader uploader = FirestoreDataUploader();
+  // FirestoreDataUploader uploader = FirestoreDataUploader();
 
-  // Upload data to Firestore
-  await uploader.uploadSampleData(); //firebase sample database
+  // // Upload data to Firestore
+  // await uploader.uploadSampleData(); //firebase sample database
 
-  // Exit the app after upload
-  print('Data upload completed.');
+  // // Exit the app after upload
+  // print('Data upload completed.');
 
-  await signInAnonymously();
+  //await signInAnonymously();
 
   // Initialize Hive for Flutter
   await Hive.initFlutter();
@@ -70,14 +72,16 @@ void main() async {
   );
 }
 
-Future<void> signInAnonymously() async {
-  try {
-    UserCredential userCredential = await FirebaseAuth.instance.signInAnonymously();
-    print('Signed in as: ${userCredential.user?.uid}');
-  } catch (e) {
-    print('Error during anonymous sign-in: $e');
-  }
-}
+// Future<void> signInAnonymously() async {
+//   try {
+//     UserCredential userCredential =
+//         await FirebaseAuth.instance.signInAnonymously();
+//     print('Signed in as: ${userCredential.user?.uid}');
+//   } catch (e) {
+//     print('Error during anonymous sign-in: $e');
+//   }
+// }
+
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -115,10 +119,6 @@ class _MyAppState extends State<MyApp> {
                   themeProvider:
                       Provider.of<ThemeProvider>(context, listen: false),
                 ),
-            '/main': (context) => HomeWithProgress(
-                  toggleTheme: themeProvider.toggleTheme,
-                  isDarkMode: themeProvider.isDarkMode,
-                ),
             '/review': (context) {
               final themeProvider = Provider.of<ThemeProvider>(context);
               return review.ReviewsPage(
@@ -141,6 +141,26 @@ class _MyAppState extends State<MyApp> {
               );
             },
             // Add other routes here if needed
+          },
+          onGenerateRoute: (settings) {
+            // Check if we're going to '/main'
+            if (settings.name == '/main') {
+              // Return a PageRouteBuilder with zero-duration transition:
+              return PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) {
+                  // We can still access your theme provider, if needed:
+                  final themeProvider =
+                      Provider.of<ThemeProvider>(context, listen: false);
+                  return HomeWithProgress(
+                    isDarkMode: themeProvider.isDarkMode,
+                    toggleTheme: themeProvider.toggleTheme,
+                  );
+                },
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              );
+            }
+            return null; // Let Flutter use the default behavior for other named routes
           },
           debugShowCheckedModeBanner: false,
           home: HomeWithProgress(

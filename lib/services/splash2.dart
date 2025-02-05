@@ -1,48 +1,75 @@
 import 'package:flutter/material.dart';
 
 class Splash2 extends StatefulWidget {
+  const Splash2({Key? key}) : super(key: key);
+
   @override
-  _Splash2State createState() => _Splash2State();
+  Splash2State createState() => Splash2State();
 }
 
-class _Splash2State extends State<Splash2> {
+class Splash2State extends State<Splash2> with SingleTickerProviderStateMixin {
+  // Controller for the speck's fade animation
+  late final AnimationController _speckController;
+  late final Animation<double> _speckOpacity;
+
   @override
   void initState() {
     super.initState();
-    // Navigate to the home page after 5 seconds
-    Future.delayed(const Duration(seconds: 5), () {
-      Navigator.pushReplacementNamed(context, '/main');
-    });
+
+    // Fade the speck in and out
+    _speckController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+
+    // Map controller 0.0->1.0 to 0.3->1.0 in opacity
+    _speckOpacity = Tween<double>(begin: 0.3, end: 1.0).animate(_speckController);
+
+    // Navigate to main after 3 seconds
+    Future.delayed(const Duration(seconds: 3), _navigateToMain);
+  }
+
+  void _navigateToMain() {
+    Navigator.pushReplacementNamed(context, '/main');
+  }
+
+  @override
+  void dispose() {
+    _speckController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Similar gradient background
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color.fromARGB(255, 249, 249, 249), // Light Beige
-              Color.fromARGB(255, 254, 254, 254), // Tan
+              Color(0xFFECEFF1), // Light Grayish-Blue
+              Color(0xFFFFFFFF), // White
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: Center(
+          // Static column layout
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Text(
+            children: [
+              const Text(
                 "Logging in...",
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
-              SizedBox(height: 20),
-              SimpleBobaBall(),
+              const SizedBox(height: 20),
+              // Same boba ball, new fade controller
+              SpeckBobaBall(speckOpacity: _speckOpacity),
             ],
           ),
         ),
@@ -51,28 +78,51 @@ class _Splash2State extends State<Splash2> {
   }
 }
 
-class SimpleBobaBall extends StatelessWidget {
-  const SimpleBobaBall({Key? key}) : super(key: key);
+// Reuse the same SpeckBobaBall widget or copy/paste it here
+class SpeckBobaBall extends StatelessWidget {
+  final Animation<double> speckOpacity;
+
+  const SpeckBobaBall({Key? key, required this.speckOpacity}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // A simple static circle representing the boba ball
-    return Container(
+    return SizedBox(
       width: 50,
       height: 50,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0xFF4E342E), // Solid dark brown color
-      ),
-      child: Center(
-        child: Container(
-          width: 5,
-          height: 5,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.9), // White speck
+      child: Stack(
+        children: [
+          // Static boba ball
+          Container(
+            width: 50,
+            height: 50,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF4E342E), // Dark brown
+            ),
           ),
-        ),
+          // Fading speck in top-right corner
+          Positioned(
+            top: 8,
+            right: 8,
+            child: AnimatedBuilder(
+              animation: speckOpacity,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: speckOpacity.value,
+                  child: child,
+                );
+              },
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

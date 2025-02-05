@@ -1,36 +1,32 @@
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({Key? key}) : super(key: key);
+
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  SplashScreenState createState() => SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> 
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _fadeController;
-  late final Animation<double> _fadeAnimation;
+class SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  // Controller for the speck's fade animation
+  late final AnimationController _speckController;
+  late final Animation<double> _speckOpacity;
 
   @override
   void initState() {
     super.initState();
 
-    _fadeController = AnimationController(
+    // Fade the speck in and out
+    _speckController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
-    );
+      duration: const Duration(seconds: 3),  // 3 second fade
+    )..repeat(reverse: true); // Fades in and out continuously
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    );
+    // Map the controller's 0.0 -> 1.0 to 0.3 -> 1.0 opacity
+    _speckOpacity = Tween<double>(begin: 0.3, end: 1.0).animate(_speckController);
 
-    _fadeController.forward();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(seconds: 6), () {
-        _navigateToUserAdmin();
-      });
-    });
+    // Navigate after 3 seconds
+    Future.delayed(const Duration(seconds: 3), _navigateToUserAdmin);
   }
 
   void _navigateToUserAdmin() {
@@ -39,45 +35,41 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _fadeController.dispose();
+    _speckController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Simple gradient background
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color.fromARGB(255, 249, 249, 249),
-              Color.fromARGB(255, 254, 254, 254),
+              Color(0xFFF1ECE9), // Light warm gray
+              Color(0xFFFFFFFF), // White
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: Center(
+          // Static column layout (no fade on text)
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: const Text(
-                  "BOPO",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black,
-                  ),
+              const Text(
+                "BOPO",
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 20),
-              const SizedBox(
-                width: 50,
-                height: 50,
-                child: _SimpleBobaBall(),
-              ),
+              // Boba ball with a fading speck
+              SpeckBobaBall(speckOpacity: _speckOpacity),
             ],
           ),
         ),
@@ -86,64 +78,52 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-class _SimpleBobaBall extends StatefulWidget {
-  const _SimpleBobaBall();
+class SpeckBobaBall extends StatelessWidget {
+  final Animation<double> speckOpacity;
 
-  @override
-  State<_SimpleBobaBall> createState() => _SimpleBobaBallState();
-}
-
-class _SimpleBobaBallState extends State<_SimpleBobaBall>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(); // Continuous rotation
-  }
+  const SpeckBobaBall({Key? key, required this.speckOpacity}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Color(0xFF4E342E), // Solid dark brown color
-        ),
-        child: Center(
-          // Off-center white speck to show rotation
-          child: Transform.translate(
-            offset: const Offset(15, 0), // Adjust offset for desired angle
-            child: Container(
-              width: 5,
-              height: 5,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.9),
+    // The ball is static; the speck is the only animated part.
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: Stack(
+        children: [
+          // Brown boba ball
+          Container(
+            width: 50,
+            height: 50,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF4E342E), // Dark brown
+            ),
+          ),
+          // Fading speck in top-right corner
+          Positioned(
+            top: 8,
+            right: 8,
+            child: AnimatedBuilder(
+              animation: speckOpacity,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: speckOpacity.value,
+                  child: child,
+                );
+              },
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.9),
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
-      builder: (context, child) {
-        return Transform.rotate(
-          angle: _controller.value * 2 * 3.141592653589793,
-          child: child,
-        );
-      },
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }

@@ -1,5 +1,4 @@
 // lib/models/boba_store.dart
-
 class BobaStore {
   final String name;
   final String imageName;
@@ -7,7 +6,8 @@ class BobaStore {
   final String id;
   final double latitude;
   final double longitude;
-  final String city; 
+  final String city;
+  final String state;  // NEW field
 
   BobaStore({
     required this.name,
@@ -16,18 +16,20 @@ class BobaStore {
     required this.id,
     required this.latitude,
     required this.longitude,
-    required this.city, // Initialize city
+    required this.city,
+    required this.state, // Initialize state
   });
 
-    factory BobaStore.fromJson(Map<String, dynamic> json) {
+  factory BobaStore.fromJson(String id, Map<String, dynamic> json) {
     return BobaStore(
-      id: json['id'],
-      name: json['name'],
-      imageName: json['imageName'],
-      qrData: json['qrData'],
-      latitude: json['latitude'],
-      longitude: json['longitude'],
-      city: json['city'],
+      id: id,
+      name: json['name'] != null ? json['name'] as String : 'Unknown Name',
+      imageName: json['imagename'] != null ? json['imagename'] as String : 'placeholder_image.png',
+      qrData: json['qrdata'] != null ? json['qrdata'] as String : 'No QR Data',
+      latitude: json['lat'] != null ? (json['lat'] as num).toDouble() : 0.0,
+      longitude: json['lng'] != null ? (json['lng'] as num).toDouble() : 0.0,
+      city: json['city'] != null ? json['city'] as String : 'Unknown City',
+      state: json['state'] != null ? json['state'] as String : 'Unknown State', // NEW
     );
   }
 }
@@ -43,7 +45,8 @@ List<BobaStore> bobaStores = [
     id: '1',
     latitude: 33.130827,
     longitude: -117.227392,
-    city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     name: 'Bubble Tea',
@@ -52,7 +55,8 @@ List<BobaStore> bobaStores = [
     id: '2',
     latitude: 34.0522,
     longitude: -118.2437,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     name: 'Happy Lemon',
@@ -61,7 +65,8 @@ List<BobaStore> bobaStores = [
     id: '3',
     latitude: 34.7749,
     longitude: -118.4194,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     name: 'Kung Fu',
@@ -70,7 +75,8 @@ List<BobaStore> bobaStores = [
     id: '4',
     latitude: 1,
     longitude: 1,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     name: 'Nintai Tea',
@@ -79,7 +85,8 @@ List<BobaStore> bobaStores = [
     id: '5',
     latitude: 1,
     longitude: 1,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     name: 'Serenitea',
@@ -88,7 +95,8 @@ List<BobaStore> bobaStores = [
     id: '6',
     latitude: 1,
     longitude: 1,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     name: 'Tea Amo',
@@ -97,7 +105,8 @@ List<BobaStore> bobaStores = [
     id: '7',
     latitude: 1,
     longitude: 1,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     name: 'Vivi Tea',
@@ -106,7 +115,8 @@ List<BobaStore> bobaStores = [
     id: '8',
     latitude: 1,
     longitude: 1,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
   BobaStore(
     
@@ -116,6 +126,7 @@ List<BobaStore> bobaStores = [
     id: '9',
     latitude: 33.130827,
     longitude: -117.227392,
-     city: 'San Marcos, CA',
+    city: 'San Marcos',
+    state: 'California'
   ),
 ];

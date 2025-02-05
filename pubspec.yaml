@@ -57,6 +57,7 @@ dependencies:
   mobile_scanner: ^6.0.2
   flutter_plugin_android_lifecycle: any
   firebase_auth: ^5.4.0
+  firebase_database: ^11.3.1
 
 dev_dependencies:
   flutter_test:
@@ -80,7 +81,8 @@ flutter_launcher_icons:
  android: true
  ios: true
  image_path: "assets/BOPO.png"
- remove_alpha_ios: true
+ adaptive_icon_background: "#4E342E"  # Replace with your brown color
+ adaptive_icon_foreground: "assets/BOPO.png"
 
 
 # For information on the generic Dart part of this file, see the

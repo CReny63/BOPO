@@ -6,20 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/splash2.dart'; // Update path if necessary
 import '../services/theme_provider.dart';
 
-class LoginPage extends StatefulWidget {
-  final ThemeProvider themeProvider;
-
-  const LoginPage({Key? key, required this.themeProvider}) : super(key: key);
-
-  @override
-  _LoginPageState createState() => _LoginPageState();
-}
-
-// Placeholder for Google Sign-In logic
+/// Google Sign-In logic
 Future<UserCredential?> signInWithGoogle() async {
   try {
     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) return null; // User canceled the sign-in
+    if (googleUser == null) {
+      // User canceled the sign-in
+      return null;
+    }
 
     final GoogleSignInAuthentication googleAuth =
         await googleUser.authentication;
@@ -34,6 +28,15 @@ Future<UserCredential?> signInWithGoogle() async {
     print('Error during Google Sign-In: $e');
     return null;
   }
+}
+
+class LoginPage extends StatefulWidget {
+  final ThemeProvider themeProvider;
+
+  const LoginPage({Key? key, required this.themeProvider}) : super(key: key);
+
+  @override
+  _LoginPageState createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
@@ -61,7 +64,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _saveCredentials(
-      String username, String password, String email) async {
+    String username,
+    String password,
+    String email,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('username', username);
     await prefs.setString('password', password);
@@ -76,7 +82,8 @@ class _LoginPageState extends State<LoginPage> {
     if (savedUsername == null || savedPassword == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('No saved credentials. Please sign up first.')),
+          content: Text('No saved credentials. Please sign up first.'),
+        ),
       );
       return;
     }
@@ -190,8 +197,7 @@ class _LoginPageState extends State<LoginPage> {
                         signUpPasswordController.text.isEmpty ||
                         confirmPasswordController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('All fields are required.')),
+                        const SnackBar(content: Text('All fields are required.')),
                       );
                       return;
                     }
@@ -199,7 +205,8 @@ class _LoginPageState extends State<LoginPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                              'Password must be at least 7 characters, include 1 digit and 1 special character.'),
+                            'Password must be at least 7 characters, include 1 digit and 1 special character.',
+                          ),
                         ),
                       );
                       return;
@@ -208,7 +215,8 @@ class _LoginPageState extends State<LoginPage> {
                         confirmPasswordController.text) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                            content: Text('Passwords do not match.')),
+                          content: Text('Passwords do not match.'),
+                        ),
                       );
                       return;
                     }
@@ -242,38 +250,18 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Simple AppBar with a solid color
       appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color.fromARGB(255, 188, 155, 142),
-                Color.fromARGB(255, 120, 87, 65),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+        backgroundColor: Colors.brown, 
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),
+      // Single color background for the entire body
       body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color.fromARGB(255, 219, 191, 167),
-              Color.fromARGB(255, 138, 103, 80),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+        color: const Color.fromARGB(255, 178, 154, 117), 
         child: SingleChildScrollView(
           child: Center(
             child: Padding(
@@ -281,14 +269,14 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Username/Password Container
                   Container(
                     width: 280,
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.75),
+                      color: Colors.white70,
                       borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: Colors.brown.shade300, width: 1),
+                      border: Border.all(color: Colors.brown.shade300, width: 1),
                     ),
                     child: Column(
                       children: [
@@ -325,6 +313,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  // Sign-In Button
                   SizedBox(
                     width: 280,
                     child: ElevatedButton(
@@ -343,6 +332,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // Sign-Up Button
                   SizedBox(
                     width: 280,
                     child: ElevatedButton(
@@ -365,42 +355,36 @@ class _LoginPageState extends State<LoginPage> {
                   SizedBox(
                     width: 280,
                     child: ElevatedButton(
-                  onPressed: () async {
-  // Show loading dialog
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => Center(child: CircularProgressIndicator()),
-  );
+                      onPressed: () async {
+                        // 1. Show a loading dialog (blocking UI)
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) =>
+                              const Center(child: CircularProgressIndicator()),
+                        );
 
-  UserCredential? userCredential = await signInWithGoogle();
+                        // 2. Attempt Google Sign-In
+                        UserCredential? userCredential =
+                            await signInWithGoogle();
 
-  // Hide loading dialog
-  Navigator.of(context).pop();
+                        // 3. Close the loading dialog
+                        Navigator.of(context).pop();
 
-  if (userCredential != null) {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => Splash2(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final fadeTween = Tween(begin: 0.0, end: 1.0)
-              .chain(CurveTween(curve: Curves.easeInOut));
-          return FadeTransition(
-            opacity: animation.drive(fadeTween),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
-    );
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Google Sign-In failed')),
-    );
-  }
-},
-
-
+                        // 4. Navigate to Splash2 if successful
+                        if (userCredential != null) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => Splash2()),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Google Sign-In failed'),
+                            ),
+                          );
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
@@ -410,10 +394,10 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                        children: const [
                           Icon(Icons.login, color: Colors.black),
-                          const SizedBox(width: 8),
-                          const Text(
+                          SizedBox(width: 8),
+                          Text(
                             'Continue with Google',
                             style: TextStyle(fontSize: 16, color: Colors.black),
                           ),
