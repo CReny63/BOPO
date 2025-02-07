@@ -13,7 +13,7 @@ class StoreService {
     return await _geolocationService.determinePosition();
   }
 
-  Future<List<BobaStore>> fetchNearbyStores({
+Future<List<BobaStore>> fetchNearbyStores({
   required double latitude,
   required double longitude,
   double radiusInMeters = 5000,
@@ -24,31 +24,48 @@ class StoreService {
   if (response.statusCode == 200) {
     final dynamic decoded = json.decode(response.body);
     List<BobaStore> stores = [];
-    
-    // Case 1: The data is a Map (typical if you set your keys manually).
+
     if (decoded is Map<String, dynamic>) {
-      decoded.forEach((key, value) {
-        // Expecting value to be a Map<String, dynamic>
-        if (value is Map<String, dynamic>) {
-          stores.add(BobaStore.fromJson(key, value));
+      // The top-level keys are city names.
+      decoded.forEach((cityName, cityData) {
+        // Make sure cityData is a Map of store records.
+        if (cityData is Map<String, dynamic>) {
+          // Iterate only over the inner store records.
+          cityData.forEach((storeKey, storeData) {
+            if (storeData is Map<String, dynamic>) {
+              // Inject the city name into the store data if desired.
+              storeData['city'] = cityName;
+
+              // Check if the store data contains a nonempty 'imagename'.
+              String? imageName = storeData['imagename']?.toString().trim();
+              String? name = storeData['name']?.toString().trim();
+
+              if (imageName != null &&
+                  imageName.isNotEmpty &&
+                  name != null &&
+                  name.isNotEmpty) {
+                // Process the individual store record.
+                stores.add(BobaStore.fromJson(storeKey, storeData));
+                print("Added store '$storeKey' in '$cityName' with imagename='$imageName' and name='$name'");
+              } else {
+                print("Skipping store '$storeKey' in '$cityName' because 'imagename' or 'name' is missing/empty");
+              }
+            }
+          });
+          print("City '$cityName' processed.");
+        } else {
+          print("Skipping city '$cityName' because its data is not a Map<String, dynamic>.");
         }
       });
+    } else {
+      print("Unexpected data format: decoded data is not a Map<String, dynamic>.");
     }
-    // Case 2: The data is a List (if data was added as an array)
-    else if (decoded is List) {
-      for (var item in decoded) {
-        if (item is Map<String, dynamic>) {
-          // In this case, there's no explicit key.
-          stores.add(BobaStore.fromJson('', item));
-        }
-      }
-    }
-    
+
+    print("Total stores parsed: ${stores.length}");
     return stores;
   } else {
     throw Exception('Failed to load nearby stores');
   }
-
 }
 
 }

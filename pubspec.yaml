@@ -99,12 +99,13 @@ flutter:
   assets:
     - assets/bubble_tea.png
     - assets/dingtealogo.png
-    - assets/happy_lemon.png
+    - assets/default_image.png
     - assets/kung_fu.png
+    - assets/Poke_Tea.png
     - assets/nintai_tea.png
     - assets/serenitea.png
     - assets/setting_icon.png
-    - assets/ST_wintermelon.png
+    - assets/TNL_boba.png
     - assets/tea_amo.png
     - assets/vivi_tea.png
     - assets/sharetealogo.png

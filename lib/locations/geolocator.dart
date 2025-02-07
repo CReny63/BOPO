@@ -8,7 +8,7 @@ class GeolocationService {
   Future<Position> determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
-    
+
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw Exception('Location services are disabled.');
@@ -40,7 +40,8 @@ class GeolocationService {
       if (placemarks.isNotEmpty) {
         // Use administrativeArea for state.
         final String city = placemarks.first.locality ?? 'Unknown City';
-        final String state = placemarks.first.administrativeArea ?? 'Unknown State';
+        final String state =
+            placemarks.first.administrativeArea ?? 'Unknown State';
         return '$city, $state';
       }
     } catch (e) {

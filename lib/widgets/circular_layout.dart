@@ -48,64 +48,69 @@ class CircularLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildPositionedStore(BuildContext context, int index, double angleIncrement) {
-    final double orbitRadius = radius * 1.5;
-    final double angle = angleIncrement * index - pi / 2;
-    final double x = orbitRadius * cos(angle);
-    final double y = orbitRadius * sin(angle);
+Widget _buildPositionedStore(BuildContext context, int index, double angleIncrement) {
+  final double orbitRadius = radius * 1.5;
+  final double angle = angleIncrement * index - pi / 2;
+  final double x = orbitRadius * cos(angle);
+  final double y = orbitRadius * sin(angle);
 
-    BobaStore store = bobaStores[index];
-    double distance = Geolocator.distanceBetween(
-      userPosition.latitude,
-      userPosition.longitude,
-      store.latitude,
-      store.longitude,
-    );
-    bool withinReach = distance <= maxDistanceThreshold;
+  BobaStore store = bobaStores[index];
+  double distance = Geolocator.distanceBetween(
+    userPosition.latitude,
+    userPosition.longitude,
+    store.latitude,
+    store.longitude,
+  );
+  bool withinReach = distance <= maxDistanceThreshold;
 
-    return Transform.translate(
-      offset: Offset(x, y),
-      child: Tooltip(
-        message: withinReach 
-            ? '${store.name} (${store.city}, ${store.state})\nDistance: ${(distance / 1000).toStringAsFixed(2)} km'
-            : 'Not within location reach',
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: AssetImage('assets/${store.imageName}.png'),
-              backgroundColor: Colors.transparent,
+  // Compute the image path with fallback.
+  String imagePath = store.imageName.isNotEmpty
+      ? 'assets/${store.imageName}.png'
+      : 'assets/default_image.png';
+
+  return Transform.translate(
+    offset: Offset(x, y),
+    child: Tooltip(
+      message: withinReach 
+          ? '${store.name} (${store.city}, ${store.state})\nDistance: ${(distance / 1000).toStringAsFixed(2)} km'
+          : 'Not within location reach',
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundImage: AssetImage(imagePath), // Use imagePath here!
+            backgroundColor: Colors.transparent,
+          ),
+          if (!withinReach)
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey.withOpacity(0.5),
+              ),
             ),
-            if (!withinReach)
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey.withOpacity(0.5),
+          // Overlay the store's name on top of the circle.
+          Text(
+            store.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              shadows: [
+                Shadow(
+                  offset: Offset(0, 1),
+                  blurRadius: 2,
+                  color: Colors.black,
                 ),
-              ),
-            // Overlay the store's name on top of the circle.
-            Text(
-              store.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(
-                    offset: Offset(0, 1),
-                    blurRadius: 2,
-                    color: Colors.black,
-                  ),
-                ],
-              ),
-              textAlign: TextAlign.center,
+              ],
             ),
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+ }
 }

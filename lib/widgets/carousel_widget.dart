@@ -17,9 +17,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
 
   // List of local/asset image paths (replace with your actual image assets)
   final List<String> _images = [
-    'assets/nintai_tea.png',
     'assets/serenitea.png',
-    'assets/ST_wintermelon.png',
     'assets/vivi_tea.png',
     'assets/tea_amo.png',
   ];
