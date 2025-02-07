@@ -7,7 +7,6 @@ import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
 import 'package:test/locations/geolocator.dart';
 import 'package:test/locations/nearby_stores.dart';
-//import 'package:test/locations/store_service.dart'; // NEW: Use our DB service instead of Firestore
 import 'package:test/widgets/Greeting.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:test/widgets/carousel_widget.dart';
@@ -34,12 +33,12 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   final Set<String> scannedStoreIds = {};
   double progressValue = 0.0;
   final GeolocationService _geoService = GeolocationService();
-  final StoreService _storeService =
-      StoreService(); // Use our Realtime DB service
+  final StoreService _storeService = StoreService(); // Our Realtime DB service
   String city = 'Loading...';
 
+  // Declare these as instance variables so they’re in scope in build().
   Position? _lastKnownPosition;
-  late List<BobaStore> sortedStores = [];
+  List<BobaStore> sortedStores = [];
 
   StreamSubscription<Position>? _positionStream;
 
@@ -59,10 +58,9 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     super.dispose();
   }
 
-  /// Fetch stores from the Realtime Database using our StoreService.
+  /// Fetch stores from the Realtime Database.
   Future<void> _fetchStores() async {
     try {
-      // Ensure we have a position before fetching
       if (_lastKnownPosition != null) {
         List<BobaStore> fetchedStores = await _storeService.fetchNearbyStores(
           latitude: _lastKnownPosition!.latitude,
@@ -72,6 +70,11 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         setState(() {
           sortedStores = fetchedStores;
         });
+        // Debug print to verify realtime data:
+        print("Realtime fetched stores:");
+        for (var store in sortedStores) {
+          print("Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -80,19 +83,13 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     }
   }
 
-  /// Determine the user's position, get the city, fetch stores, and sort them.
+  /// Determine position, fetch stores, and sort them.
   Future<void> _sortStoresByDistance() async {
     try {
       Position userPosition = await _geoService.determinePosition();
       _lastKnownPosition = userPosition;
-
-      // Retrieve the city name from the user's position.
       city = await _geoService.getLocationText(userPosition);
-
-      // Fetch stores from the Realtime Database.
       await _fetchStores();
-
-      // Sort the fetched stores by distance.
       _sortStoresByDistanceWithPosition(userPosition);
     } catch (e) {
       if (kDebugMode) {
@@ -101,7 +98,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     }
   }
 
-  /// Sort the list of stores by their distance from the given position.
+  /// Sort stores by distance from the given position.
   void _sortStoresByDistanceWithPosition(Position userPosition) {
     sortedStores.sort((a, b) {
       double distanceA = Geolocator.distanceBetween(
@@ -139,7 +136,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     final double screenHeight = MediaQuery.of(context).size.height;
     final double radius = min(screenWidth, screenHeight) / 4;
 
-    // If we don't have a valid position yet, show a progress indicator.
+    // Show a progress indicator if we don't have a valid position.
     if (_lastKnownPosition == null) {
       return Scaffold(
         appBar: PreferredSize(
@@ -187,12 +184,15 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                 ),
               ),
               const SizedBox(height: 20),
+              // Use the realtime-fetched list via NearbyStoresWidget.
               SizedBox(
                 height: 400,
-                child:
-                    NearbyStoresWidget(), // Ensure this widget reads from sortedStores
+                child: NearbyStoresWidget(
+                  stores: sortedStores, // Pass our realtime data list.
+                  userPosition: _lastKnownPosition!,
+                  userLocationText: city,
+                ),
               ),
-
               const SizedBox(height: 100),
               Center(child: CarouselWidget()),
               const SizedBox(height: 120),
@@ -211,8 +211,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             builder: (context) => const ChatbotPopup(),
           );
         },
-        backgroundColor:
-            Theme.of(context).floatingActionButtonTheme.backgroundColor,
+        backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
         child: const Icon(Icons.chat),
       ),
       bottomNavigationBar: buildBottomNavBar(context),

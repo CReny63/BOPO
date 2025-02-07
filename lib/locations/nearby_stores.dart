@@ -7,19 +7,21 @@ import 'package:test/locations/geolocator.dart';
 import 'package:test/widgets/circular_layout.dart'; // Use the updated circular layout
 
 class NearbyStoresWidget extends StatefulWidget {
+  const NearbyStoresWidget({Key? key, required List<BobaStore> stores, required Position userPosition, required String userLocationText}) : super(key: key);
+
   @override
   _NearbyStoresWidgetState createState() => _NearbyStoresWidgetState();
 }
 
 class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
   // Your Realtime Database endpoint (with .json)
-  final String apiEndpoint = 'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';
+  final String apiEndpoint =
+      'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';
   List<BobaStore> stores = [];
   bool isLoading = true;
   Position? userPosition;
   String userLocationText = 'Your Location'; // Placeholder
   final GeolocationService _geoService = GeolocationService();
-
 
   @override
   void initState() {
@@ -29,13 +31,13 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
 
   Future<void> _fetchUserPositionAndStores() async {
     try {
-      // First, get the user's current position.
+      // Get the user's current position.
       userPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      
-       // Dynamically fetch the user's location text (city and state).
-    userLocationText = await _geoService.getLocationText(userPosition!);
+
+      // Dynamically fetch the user's location text (city and state).
+      userLocationText = await _geoService.getLocationText(userPosition!);
 
       // Then, fetch the stores from your Realtime Database.
       final url = Uri.parse(apiEndpoint);
@@ -44,20 +46,35 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
         final dynamic decoded = json.decode(response.body);
         List<BobaStore> fetchedStores = [];
 
+        // Iterate over the structure:
+        // Top-level: cities. Under each city: stores.
         if (decoded is Map<String, dynamic>) {
-          decoded.forEach((key, value) {
-            if (value is Map<String, dynamic>) {
-              fetchedStores.add(BobaStore.fromJson(key, value));
+          decoded.forEach((cityName, cityData) {
+            if (cityData is Map<String, dynamic>) {
+              cityData.forEach((storeKey, storeData) {
+                if (storeData is Map<String, dynamic>) {
+                  // Inject the city name into the store data.
+                  storeData['city'] = cityName;
+                  // You can also perform additional validations here if needed.
+                  fetchedStores.add(BobaStore.fromJson(storeKey, storeData));
+                  print("Added store '$storeKey' in '$cityName' with "
+                      "imagename='${storeData['imagename']}', name='${storeData['name']}'");
+                }
+              });
+              print("City '$cityName' processed.");
+            } else {
+              print("Skipping city '$cityName' because its data is not a Map.");
             }
           });
         } else if (decoded is List) {
-          // Handle case where data is returned as a List.
+          // Handle the case where data is returned as a List (if applicable).
           for (var item in decoded) {
             if (item is Map<String, dynamic>) {
               fetchedStores.add(BobaStore.fromJson('', item));
             }
           }
         }
+        print("Total stores parsed: ${fetchedStores.length}");
         setState(() {
           stores = fetchedStores;
           isLoading = false;
@@ -76,10 +93,10 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
   @override
   Widget build(BuildContext context) {
     if (isLoading || userPosition == null) {
-      return Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
     if (stores.isEmpty) {
-      return Center(child: Text('No stores found.'));
+      return const Center(child: Text('No stores found.'));
     }
     // Use the CircularLayout widget to display the stores.
     return CircularLayout(

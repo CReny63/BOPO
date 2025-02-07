@@ -50,6 +50,7 @@ class CircularLayout extends StatelessWidget {
 
 Widget _buildPositionedStore(BuildContext context, int index, double angleIncrement) {
   final double orbitRadius = radius * 1.5;
+  
   final double angle = angleIncrement * index - pi / 2;
   final double x = orbitRadius * cos(angle);
   final double y = orbitRadius * sin(angle);
@@ -67,8 +68,10 @@ Widget _buildPositionedStore(BuildContext context, int index, double angleIncrem
   String imagePath = store.imageName.isNotEmpty
       ? 'assets/${store.imageName}.png'
       : 'assets/default_image.png';
+print("Displaying store: name=${store.name}, imageName=${store.imageName}");
 
   return Transform.translate(
+    
     offset: Offset(x, y),
     child: Tooltip(
       message: withinReach 

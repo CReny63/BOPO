@@ -22,6 +22,7 @@ Future<List<BobaStore>> fetchNearbyStores({
   final response = await http.get(url);
 
   if (response.statusCode == 200) {
+    
     final dynamic decoded = json.decode(response.body);
     List<BobaStore> stores = [];
 
