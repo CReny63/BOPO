@@ -21,7 +21,29 @@ class CircularLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int itemCount = bobaStores.length;
+    // First, sort the incoming list by distance from the user.
+    List<BobaStore> sortedList = List<BobaStore>.from(bobaStores);
+    sortedList.sort((a, b) {
+      double distanceA = Geolocator.distanceBetween(
+        userPosition.latitude,
+        userPosition.longitude,
+        a.latitude,
+        a.longitude,
+      );
+      double distanceB = Geolocator.distanceBetween(
+        userPosition.latitude,
+        userPosition.longitude,
+        b.latitude,
+        b.longitude,
+      );
+      return distanceA.compareTo(distanceB);
+    });
+
+    // Now select the 8 closest stores.
+    final int numStoresToShow = min(8, sortedList.length);
+    final List<BobaStore> displayStores = sortedList.sublist(0, numStoresToShow);
+
+    final int itemCount = displayStores.length;
     final double angleIncrement = 2 * pi / itemCount;
 
     return SizedBox(
@@ -34,86 +56,84 @@ class CircularLayout extends StatelessWidget {
           Text(
             userLocationText,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              fontFamily: 'Roboto', 
+              //fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
             textAlign: TextAlign.center,
           ),
           // Position each store around the circle.
           for (int i = 0; i < itemCount; i++)
-            _buildPositionedStore(context, i, angleIncrement),
+            _buildPositionedStore(context, i, angleIncrement, displayStores),
         ],
       ),
     );
   }
 
-Widget _buildPositionedStore(BuildContext context, int index, double angleIncrement) {
-  final double orbitRadius = radius * 1.5;
-  
-  final double angle = angleIncrement * index - pi / 2;
-  final double x = orbitRadius * cos(angle);
-  final double y = orbitRadius * sin(angle);
+  Widget _buildPositionedStore(BuildContext context, int index, double angleIncrement, List<BobaStore> displayStores) {
+    final double orbitRadius = radius * 1.2;
+    final double angle = angleIncrement * index - pi / 2;
+    final double x = orbitRadius * cos(angle);
+    final double y = orbitRadius * sin(angle);
 
-  BobaStore store = bobaStores[index];
-  double distance = Geolocator.distanceBetween(
-    userPosition.latitude,
-    userPosition.longitude,
-    store.latitude,
-    store.longitude,
-  );
-  bool withinReach = distance <= maxDistanceThreshold;
+    BobaStore store = displayStores[index];
+    double distance = Geolocator.distanceBetween(
+      userPosition.latitude,
+      userPosition.longitude,
+      store.latitude,
+      store.longitude,
+    );
+    bool withinReach = distance <= maxDistanceThreshold;
 
-  // Compute the image path with fallback.
-  String imagePath = store.imageName.isNotEmpty
-      ? 'assets/${store.imageName}.png'
-      : 'assets/default_image.png';
-print("Displaying store: name=${store.name}, imageName=${store.imageName}");
+    // Compute the image path with fallback.
+    String imagePath = store.imageName.isNotEmpty
+        ? 'assets/${store.imageName}.png'
+        : 'assets/default_image.png';
 
-  return Transform.translate(
-    
-    offset: Offset(x, y),
-    child: Tooltip(
-      message: withinReach 
-          ? '${store.name} (${store.city}, ${store.state})\nDistance: ${(distance / 1000).toStringAsFixed(2)} km'
-          : 'Not within location reach',
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundImage: AssetImage(imagePath), // Use imagePath here!
-            backgroundColor: Colors.transparent,
-          ),
-          if (!withinReach)
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey.withOpacity(0.5),
-              ),
+    return Transform.translate(
+      offset: Offset(x, y),
+      child: Tooltip(
+        message: withinReach 
+            ? '${store.name} (${store.city}, ${store.state})\nDistance: ${(distance / 1000).toStringAsFixed(2)} km'
+            : 'Not within location reach',
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundImage: AssetImage(imagePath),
+              backgroundColor: Colors.transparent,
             ),
-          // Overlay the store's name on top of the circle.
-          Text(
-            store.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  offset: Offset(0, 1),
-                  blurRadius: 2,
-                  color: Colors.black,
+            if (!withinReach)
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey.withOpacity(0.5),
                 ),
-              ],
+              ),
+            // Overlay the store's name on top of the circle.
+            Text(
+              store.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                    color: Colors.black,
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
- }
+    );
+  }
 }
