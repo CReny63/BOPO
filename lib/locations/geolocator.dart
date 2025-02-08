@@ -31,24 +31,26 @@ class GeolocationService {
   }
 
   /// Reverse geocodes the given position and returns a combined string with city and state.
-  Future<String> getLocationText(Position position) async {
-    try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-      if (placemarks.isNotEmpty) {
-        // Use administrativeArea for state.
-        final String city = placemarks.first.locality ?? 'Unknown City';
-        final String state =
-            placemarks.first.administrativeArea ?? 'Unknown State';
-        return '$city, $state';
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error in reverse geocoding: $e');
-      }
-    }
-    return 'Unknown Location';
+ Future<String> getLocationText(Position position) async {
+  // Assume this method uses reverse geocoding to get a Placemark.
+  final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+  if (placemarks.isNotEmpty) {
+    final placemark = placemarks.first;
+    // Map full state names to abbreviations.
+    final stateAbbr = _stateAbbreviation(placemark.administrativeArea);
+    return "${placemark.locality}, $stateAbbr";
   }
+  return "Unknown Location";
+}
+
+String _stateAbbreviation(String? state) {
+  // Simple example mapping. Expand as needed.
+  final mapping = {
+    "California": "CA",
+    "Arizona": "AZ",
+    // ... add other mappings here ...
+  };
+  return mapping[state] ?? state ?? "";
+}
+
 }

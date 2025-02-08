@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:test/locations/boba_store.dart';
+import 'package:test/models/store_details.dart'; // Import your details screen
 
 class CircularLayout extends StatelessWidget {
   final double radius;
@@ -56,9 +57,8 @@ class CircularLayout extends StatelessWidget {
           Text(
             userLocationText,
             style: const TextStyle(
-              fontSize: 12,
-              fontFamily: 'Roboto', 
-              //fontWeight: FontWeight.bold,
+              fontSize: 12, // Adjust as needed
+              fontFamily: 'Roboto',
               color: Colors.black,
             ),
             textAlign: TextAlign.center,
@@ -93,10 +93,20 @@ class CircularLayout extends StatelessWidget {
 
     return Transform.translate(
       offset: Offset(x, y),
-      child: Tooltip(
-        message: withinReach 
-            ? '${store.name} (${store.city}, ${store.state})\nDistance: ${(distance / 1000).toStringAsFixed(2)} km'
-            : 'Not within location reach',
+      // Wrap the store widget in a GestureDetector to handle taps.
+      child: GestureDetector(
+        onTap: () {
+          // Navigate to the details screen when tapped.
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => StoreDetailsScreen(
+                store: store,
+                userPosition: userPosition,
+              ),
+            ),
+          );
+        },
         child: Stack(
           alignment: Alignment.center,
           children: [
