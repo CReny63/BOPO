@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -36,7 +37,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   final StoreService _storeService = StoreService(); // Our Realtime DB service
   String city = 'Loading...';
 
-  // Declare these as instance variables so they’re in scope in build().
+  // Instance variables for location and stores.
   Position? _lastKnownPosition;
   List<BobaStore> sortedStores = [];
 
@@ -73,7 +74,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         // Debug print to verify realtime data:
         print("Realtime fetched stores:");
         for (var store in sortedStores) {
-          print("Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
+          print(
+              "Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
         }
       }
     } catch (e) {
@@ -130,6 +132,11 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     setState(() {});
   }
 
+  /// Refresh callback for pull-to-refresh.
+  Future<void> _handleRefresh() async {
+    await _sortStoresByDistance();
+  }
+
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
@@ -161,46 +168,76 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           isDarkMode: widget.isDarkMode,
         ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      // Wrap the entire scrollable content with CustomRefreshIndicator.
+      body: CustomRefreshIndicator(
+        onRefresh: _handleRefresh,
+        builder: (BuildContext context, Widget child,
+            IndicatorController controller) {
+          return Stack(
+            alignment: Alignment.topCenter,
             children: [
-              const SizedBox(height: 20),
-              Text(
-                greeting,
-                style: TextStyle(
-                  fontSize: 21,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                  fontFamily: 'Roboto',
+              // Animate the capybara icon.
+              Transform.translate(
+                offset: Offset(0, controller.value * 100 - 50),
+                child: Opacity(
+                  opacity: min(controller.value, 1.0),
+                  child: Image.asset(
+                    'assets/capy_boba.png', // Ensure this asset exists.
+                    width: 50,
+                    height: 50,
+                  ),
                 ),
               ),
-              Text(
-                currentDate,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                ),
+              // Translate the entire scrollable child downward as the pull occurs.
+              Transform.translate(
+                offset: Offset(0, controller.value * 100),
+                child: child,
               ),
-              const SizedBox(height: 20),
-              // Use the realtime-fetched list via NearbyStoresWidget.
-              SizedBox(
-                height: 400,
-                child: NearbyStoresWidget(
-                  stores: sortedStores, // Pass our realtime data list.
-                  userPosition: _lastKnownPosition!,
-                  userLocationText: city,
-                ),
-              ),
-              const SizedBox(height: 100),
-              Center(child: CarouselWidget()),
-              const SizedBox(height: 120),
-              const PromoBanner(),
-              const SizedBox(height: 30),
-              const SocialMediaLinks(),
-              const SizedBox(height: 30),
             ],
+          );
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                Text(
+                  greeting,
+                  style: TextStyle(
+                    fontSize: 21,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    fontFamily: 'Roboto',
+                  ),
+                ),
+                Text(
+                  currentDate,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Use the realtime-fetched list via NearbyStoresWidget.
+                SizedBox(
+                  height: 400,
+                  child: NearbyStoresWidget(
+                    stores: sortedStores, // Pass our realtime data list.
+                    userPosition: _lastKnownPosition!,
+                    userLocationText: city,
+                  ),
+                ),
+                const SizedBox(height: 100),
+                Center(child: CarouselWidget()),
+                const SizedBox(height: 120),
+                const PromoBanner(),
+                const SizedBox(height: 30),
+                const SocialMediaLinks(),
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
       ),
@@ -211,7 +248,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             builder: (context) => const ChatbotPopup(),
           );
         },
-        backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
+        backgroundColor:
+            Theme.of(context).floatingActionButtonTheme.backgroundColor,
         child: const Icon(Icons.chat),
       ),
       bottomNavigationBar: buildBottomNavBar(context),

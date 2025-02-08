@@ -58,6 +58,7 @@ dependencies:
   flutter_plugin_android_lifecycle: any
   firebase_auth: ^5.4.0
   firebase_database: ^11.3.1
+  custom_refresh_indicator: ^4.0.1
 
 dev_dependencies:
   flutter_test:
@@ -110,6 +111,7 @@ flutter:
     - assets/vivi_tea.png
     - assets/sharetealogo.png
     - assets/BOPO.png
+    - assets/capy_boba.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
