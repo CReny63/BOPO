@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
-import 'package:test/models/store_details.dart'; // Import your details screen
+import 'package:test/models/store_details.dart';
+import 'package:test/services/theme_provider.dart';
+
 
 class CircularLayout extends StatelessWidget {
   final double radius;
@@ -46,23 +49,19 @@ class CircularLayout extends StatelessWidget {
 
     final int itemCount = displayStores.length;
     final double angleIncrement = 2 * pi / itemCount;
-
-    return SizedBox(
-      width: radius * 3,
-      height: radius * 3,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Display the user's location (city and state) at the center.
-          Text(
-            userLocationText,
-            style: const TextStyle(
-              fontSize: 12, // Adjust as needed
-              fontFamily: 'Roboto',
-              color: Colors.black,
-            ),
-            textAlign: TextAlign.center,
-          ),
+ final themeProvider = Provider.of<ThemeProvider>(context);
+return SizedBox(
+  width: radius * 3,
+  height: radius * 3,
+  child: Stack(
+    alignment: Alignment.center,
+    children: [
+      // Display the user's location (city and state) at the center.
+      Text(
+        userLocationText,
+        style: themeProvider.currentTheme.textTheme.bodyMedium,// Now using the style from ThemeProvider.
+        textAlign: TextAlign.center,
+      ),
           // Position each store around the circle.
           for (int i = 0; i < itemCount; i++)
             _buildPositionedStore(context, i, angleIncrement, displayStores),

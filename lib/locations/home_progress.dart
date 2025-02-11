@@ -11,7 +11,7 @@ import 'package:test/locations/nearby_stores.dart';
 import 'package:test/widgets/Greeting.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:test/widgets/carousel_widget.dart';
-import 'package:test/widgets/chatbot_popup.dart';
+import 'package:test/widgets/missionScreen.dart';
 import 'package:test/widgets/circular_layout.dart';
 import 'package:test/widgets/promo.dart';
 import 'package:test/widgets/social_media.dart';
@@ -74,8 +74,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         // Debug print to verify realtime data:
         print("Realtime fetched stores:");
         for (var store in sortedStores) {
-          print(
-              "Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
+          print("Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
         }
       }
     } catch (e) {
@@ -133,9 +132,30 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   }
 
   /// Refresh callback for pull-to-refresh.
-  Future<void> _handleRefresh() async {
-    await _sortStoresByDistance();
-  }
+ Future<void> _handleRefresh() async {
+  // Force a fresh location update:
+  Position freshPosition = await Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.high,
+    // For Android, forcing the Android location manager may help bypass cached results:
+    forceAndroidLocationManager: true,
+  );
+  setState(() {
+    _lastKnownPosition = freshPosition;
+  });
+  // Retrieve a fresh city string.
+  city = await _geoService.getLocationText(freshPosition);
+  
+  // Re-fetch stores using the fresh position.
+  await _fetchStores();
+  
+  // Re-sort stores based on the new location.
+  _sortStoresByDistanceWithPosition(freshPosition);
+
+  // Optional delay so the refresh animation is visible.
+  await Future.delayed(const Duration(milliseconds: 500));
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -171,8 +191,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
       // Wrap the entire scrollable content with CustomRefreshIndicator.
       body: CustomRefreshIndicator(
         onRefresh: _handleRefresh,
-        builder: (BuildContext context, Widget child,
-            IndicatorController controller) {
+        builder: (BuildContext context, Widget child, IndicatorController controller) {
           return Stack(
             alignment: Alignment.topCenter,
             children: [
@@ -229,8 +248,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                     userLocationText: city,
                   ),
                 ),
-                const SizedBox(height: 100),
-                Center(child: CarouselWidget()),
+                //const SizedBox(height: 100),
+                //Center(child: CarouselWidget()),
                 const SizedBox(height: 120),
                 const PromoBanner(),
                 const SizedBox(height: 30),
@@ -245,12 +264,11 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         onPressed: () {
           showDialog(
             context: context,
-            builder: (context) => const ChatbotPopup(),
+            builder: (context) => const MissionsScreen(),
           );
         },
-        backgroundColor:
-            Theme.of(context).floatingActionButtonTheme.backgroundColor,
-        child: const Icon(Icons.chat),
+        backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
+        child: const Icon(Icons.lock_open),
       ),
       bottomNavigationBar: buildBottomNavBar(context),
     );

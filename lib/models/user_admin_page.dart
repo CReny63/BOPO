@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../admin.dart';
-import '../widgets/chatbot_popup.dart'; // Import the Chatbot file
+import '../widgets/missionScreen.dart'; // Import the Chatbot file
 import 'package:test/services/theme_provider.dart';
 import '../login.dart'; // Import the Login Page
 
@@ -123,18 +123,18 @@ class UserAdminPage extends StatelessWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Trigger chatbot popup
-          showDialog(
-            context: context,
-            builder: (context) =>  ChatbotPopup(),
-          );
-        },
-        child: const Icon(Icons.chat),
-         backgroundColor:
-            Theme.of(context).floatingActionButtonTheme.backgroundColor,
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     // Trigger chatbot popup
+      //     showDialog(
+      //       context: context,
+      //       builder: (context) =>  ChatbotPopup(),
+      //     );
+      //   },
+      //   child: const Icon(Icons.chat),
+      //    backgroundColor:
+      //       Theme.of(context).floatingActionButtonTheme.backgroundColor,
+      // ),
     );
   }
 
