@@ -22,10 +22,8 @@ class ProfilePage extends StatelessWidget {
       // Here we call our custom app bar, but rely on the values from constructor:
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: AppBarContent(
-          toggleTheme: toggleTheme,       // use the callback we got from constructor
-          isDarkMode: isDarkMode,         // use the boolean from constructor
-        ),
+        child: const AppBarContent(),
+
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(

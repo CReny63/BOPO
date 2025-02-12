@@ -32,10 +32,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: AppBarContent(
-          toggleTheme: widget.toggleTheme,
-          isDarkMode: widget.isDarkMode,
-        ),
+       child: const AppBarContent(),
+
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: Padding(

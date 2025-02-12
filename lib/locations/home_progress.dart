@@ -85,10 +85,14 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   }
 
   /// Determine position, fetch stores, and sort them.
+  
   Future<void> _sortStoresByDistance() async {
     try {
       Position userPosition = await _geoService.determinePosition();
-      _lastKnownPosition = userPosition;
+      // Update the position and city.
+      setState(() {
+        _lastKnownPosition = userPosition;
+      });
       city = await _geoService.getLocationText(userPosition);
       await _fetchStores();
       _sortStoresByDistanceWithPosition(userPosition);
@@ -132,28 +136,20 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   }
 
   /// Refresh callback for pull-to-refresh.
- Future<void> _handleRefresh() async {
-  // Force a fresh location update:
-  Position freshPosition = await Geolocator.getCurrentPosition(
-    desiredAccuracy: LocationAccuracy.high,
-    // For Android, forcing the Android location manager may help bypass cached results:
-    forceAndroidLocationManager: true,
-  );
+Future<void> _handleRefresh() async {
+  // Clear the current state to trigger the loading indicator.
   setState(() {
-    _lastKnownPosition = freshPosition;
+    _lastKnownPosition = null;
+    sortedStores = [];
   });
-  // Retrieve a fresh city string.
-  city = await _geoService.getLocationText(freshPosition);
-  
-  // Re-fetch stores using the fresh position.
-  await _fetchStores();
-  
-  // Re-sort stores based on the new location.
-  _sortStoresByDistanceWithPosition(freshPosition);
+
+  // Re-run the full logic that determines position, fetches, and sorts stores.
+  await _sortStoresByDistance();
 
   // Optional delay so the refresh animation is visible.
-  await Future.delayed(const Duration(milliseconds: 500));
+  await Future.delayed(const Duration(milliseconds: 1000));
 }
+
 
 
 
@@ -168,10 +164,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
       return Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
-          child: AppBarContent(
-            toggleTheme: widget.toggleTheme,
-            isDarkMode: widget.isDarkMode,
-          ),
+          child: const AppBarContent(),
+
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -183,10 +177,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: AppBarContent(
-          toggleTheme: widget.toggleTheme,
-          isDarkMode: widget.isDarkMode,
-        ),
+       child: const AppBarContent(),
+
       ),
       // Wrap the entire scrollable content with CustomRefreshIndicator.
       body: CustomRefreshIndicator(
@@ -268,7 +260,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           );
         },
         backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
-        child: const Icon(Icons.lock_open),
+        child: const Icon(Icons.assignment),
       ),
       bottomNavigationBar: buildBottomNavBar(context),
     );

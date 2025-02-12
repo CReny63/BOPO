@@ -16,10 +16,8 @@ class NotificationsPage extends StatelessWidget {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75), 
-        child: AppBarContent(
-          toggleTheme: toggleTheme,
-          isDarkMode: isDarkMode,
-        ),
+        child: const AppBarContent(),
+
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: const Center(

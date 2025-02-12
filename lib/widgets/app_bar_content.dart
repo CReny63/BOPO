@@ -3,14 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:test/services/theme_provider.dart';
 
 class AppBarContent extends StatelessWidget {
-  final VoidCallback toggleTheme;
-  final bool isDarkMode;
-
-  const AppBarContent({
-    super.key,
-    required this.toggleTheme,
-    required this.isDarkMode,
-  });
+  const AppBarContent({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -27,19 +20,19 @@ class AppBarContent extends StatelessWidget {
               color: Theme.of(context).appBarTheme.iconTheme?.color,
             ),
             onPressed: () {
-             // _showSettingsMenu(context);
+              // Implement your menu action here, if any.
             },
           ),
-          IconButton(
-            icon: Icon(
-              Icons.coffee,
-              size: 13,
-              color: Theme.of(context).appBarTheme.iconTheme?.color,
-            ),
-            onPressed: () {
-              // Add your custom action here
-            },
-          ),
+          // IconButton(
+          //   icon: Icon(
+          //     Icons.coffee,
+          //     size: 13,
+          //     color: Theme.of(context).appBarTheme.iconTheme?.color,
+          //   ),
+          //   onPressed: () {
+          //     // Implement your custom coffee action here, if any.
+          //   },
+          // ),
           IconButton(
             icon: Icon(
               Icons.light_mode,
@@ -47,42 +40,12 @@ class AppBarContent extends StatelessWidget {
               color: Theme.of(context).appBarTheme.iconTheme?.color,
             ),
             onPressed: () {
-              _showSettingsMenu(context);
+              // Directly toggle the theme without showing a bottom sheet.
+              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
             },
           ),
         ],
       ),
-    );
-  }
-
-  void _showSettingsMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(16.0),
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.color_lens),
-                title: const Text('Toggle Theme'),
-                onTap: () {
-                  Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Logout'),
-                onTap: () {
-                  // Implement logout functionality
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
