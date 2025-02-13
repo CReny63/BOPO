@@ -19,7 +19,7 @@ class ReviewsPage extends StatefulWidget {
 class _ReviewsPageState extends State<ReviewsPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _commentController = TextEditingController();
-  
+
   int _rating = 0;
   List<Map<String, dynamic>> _reviews = [];
 
@@ -27,13 +27,13 @@ class _ReviewsPageState extends State<ReviewsPage> {
   Widget build(BuildContext context) {
     // Use themeColor from current theme for title text
     final Color themeColor =
-        Theme.of(context).floatingActionButtonTheme.backgroundColor ?? Colors.black;
+        Theme.of(context).floatingActionButtonTheme.backgroundColor ??
+            Colors.black;
 
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-       child: const AppBarContent(),
-
+        child: const AppBarContent(),
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: Padding(
@@ -53,55 +53,54 @@ class _ReviewsPageState extends State<ReviewsPage> {
               ),
               const SizedBox(height: 20),
 
-              
               // Rating input section
-    Center(
-  child: Row(
-    mainAxisSize: MainAxisSize.min,  // Row occupies minimal horizontal space
-    children: [
-      const Text(
-        'Rating: ',
-        style: TextStyle(fontSize: 16, color: Colors.white),
-      ),
-      ...List.generate(5, (index) {
-        return IconButton(
-          icon: Icon(
-            Icons.star,
-            color: _rating > index ? Colors.black : Colors.grey,
-          ),
-          onPressed: () {
-            setState(() {
-              _rating = index + 1;
-            });
-          },
-        );
-      }),
-    ],
-  ),
-),
+              Center(
+                child: Row(
+                  mainAxisSize:
+                      MainAxisSize.min, // Row occupies minimal horizontal space
+                  children: [
+                    const Text(
+                      'Rating: ',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                    ...List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          Icons.star,
+                          color: _rating > index ? Colors.black : Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _rating = index + 1;
+                          });
+                        },
+                      );
+                    }),
+                  ],
+                ),
+              ),
 
-const SizedBox(height: 10),
-
-
+              const SizedBox(height: 10),
 
               // Comment input field
-           // Wrap the comment TextField with a Container or SizedBox
-SizedBox(
-  width: 250,   // Set desired width
-  height: 100,  // Set desired height (optional for multi-line inputs)
-  child: TextField(
-    controller: _commentController,
-    decoration: const InputDecoration(
-      labelText: 'Leave your feedback...',
-      labelStyle: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
-      filled: true,
-      fillColor: Colors.white70,
-      border: OutlineInputBorder(),
-    ),
-    maxLines: 3,
-  ),
-),
-const SizedBox(height: 10),
+              // Wrap the comment TextField with a Container or SizedBox
+              SizedBox(
+                width: 250, // Set desired width
+                height:
+                    100, // Set desired height (optional for multi-line inputs)
+                child: TextField(
+                  controller: _commentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Leave your feedback...',
+                    labelStyle: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
+                    filled: true,
+                    fillColor: Colors.white70,
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+              ),
+              const SizedBox(height: 10),
 
               const SizedBox(height: 20),
 
@@ -112,7 +111,8 @@ const SizedBox(height: 10),
                       _commentController.text.isNotEmpty &&
                       _nameController.text.isNotEmpty) {
                     final now = DateTime.now();
-                    final formattedDate = DateFormat('yyyy-MM-dd HH:mm').format(now);
+                    final formattedDate =
+                        DateFormat('yyyy-MM-dd HH:mm').format(now);
                     setState(() {
                       _reviews.add({
                         'name': _nameController.text,
@@ -159,7 +159,8 @@ const SizedBox(height: 10),
                             Row(
                               children: [
                                 ...List.generate(review['rating'], (index) {
-                                  return const Icon(Icons.star, color: Colors.orange);
+                                  return const Icon(Icons.star,
+                                      color: Colors.orange);
                                 }),
                                 const SizedBox(width: 8),
                                 Text(
@@ -198,29 +199,29 @@ const SizedBox(height: 10),
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             IconButton(
-              icon: const Icon(Icons.star_half_outlined, size: 21.0),
+              icon: const Icon(Icons.star_outline, size: 21.0),
               tooltip: 'Reviews',
               onPressed: () {
                 // Already on Reviews
               },
             ),
             IconButton(
-              icon: const Icon(Icons.home, size: 21.0),
+              icon: const Icon(Icons.people_alt_outlined, size: 21.0),
+              tooltip: 'QR Code',
+              onPressed: () => _showQRCodeModal(context),
+            ),
+             IconButton(
+              icon: const Icon(Icons.home_outlined, size: 21.0),
               tooltip: 'Home',
               onPressed: () => Navigator.pushNamed(context, '/main'),
             ),
             IconButton(
-              icon: const Icon(Icons.qr_code, size: 21.0),
-              tooltip: 'QR Code',
-              onPressed: () => _showQRCodeModal(context),
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications, size: 21.0),
+              icon: const Icon(Icons.discount_outlined, size: 21.0),
               tooltip: 'Notifications',
               onPressed: () => Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(
-              icon: const Icon(Icons.person, size: 21.0),
+              icon: const Icon(Icons.person_outline, size: 21.0),
               tooltip: 'Profile',
               onPressed: () => Navigator.pushNamed(context, '/profile'),
             ),

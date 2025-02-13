@@ -65,27 +65,27 @@ class ProfilePage extends StatelessWidget {
     mainAxisAlignment: MainAxisAlignment.spaceAround,
     children: <Widget>[
       IconButton(
-        icon: const Icon(Icons.star_half_outlined, size: 21.0),
+        icon: const Icon(Icons.star_outline, size: 21.0),
         tooltip: 'Reviews',
         onPressed: () => Navigator.pushNamed(context, '/review'),
       ),
       IconButton(
-        icon: const Icon(Icons.home, size: 21.0),
-        tooltip: 'Home',
-        onPressed: () => Navigator.pushNamed(context, '/main'),
-      ),
-      IconButton(
-        icon: const Icon(Icons.qr_code, size: 21.0),
+        icon: const Icon(Icons.people_alt_outlined, size: 21.0),
         tooltip: 'QR Code',
         onPressed: () => _showQRCodeModal(context),
       ),
       IconButton(
-        icon: const Icon(Icons.notifications, size: 21.0),
+        icon: const Icon(Icons.home_outlined, size: 21.0),
+        tooltip: 'Home',
+        onPressed: () => Navigator.pushNamed(context, '/main'),
+      ),
+      IconButton(
+        icon: const Icon(Icons.discount_outlined, size: 21.0),
         tooltip: 'Notifications',
         onPressed: () => Navigator.pushNamed(context, '/notifications'),
       ),
       IconButton(
-        icon: const Icon(Icons.person, size: 21.0),
+        icon: const Icon(Icons.person_outline, size: 21.0),
         tooltip: 'Profile',
         onPressed: () {
           // Handle profile tap action or navigation

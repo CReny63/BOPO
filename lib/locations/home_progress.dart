@@ -74,7 +74,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         // Debug print to verify realtime data:
         print("Realtime fetched stores:");
         for (var store in sortedStores) {
-          print("Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
+          print(
+              "Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
         }
       }
     } catch (e) {
@@ -85,7 +86,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   }
 
   /// Determine position, fetch stores, and sort them.
-  
+
   Future<void> _sortStoresByDistance() async {
     try {
       Position userPosition = await _geoService.determinePosition();
@@ -136,22 +137,19 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   }
 
   /// Refresh callback for pull-to-refresh.
-Future<void> _handleRefresh() async {
-  // Clear the current state to trigger the loading indicator.
-  setState(() {
-    _lastKnownPosition = null;
-    sortedStores = [];
-  });
+  Future<void> _handleRefresh() async {
+    // Clear the current state to trigger the loading indicator.
+    setState(() {
+      _lastKnownPosition = null;
+      sortedStores = [];
+    });
 
-  // Re-run the full logic that determines position, fetches, and sorts stores.
-  await _sortStoresByDistance();
+    // Re-run the full logic that determines position, fetches, and sorts stores.
+    await _sortStoresByDistance();
 
-  // Optional delay so the refresh animation is visible.
-  await Future.delayed(const Duration(milliseconds: 1000));
-}
-
-
-
+    // Optional delay so the refresh animation is visible.
+    await Future.delayed(const Duration(milliseconds: 1000));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +163,6 @@ Future<void> _handleRefresh() async {
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
           child: const AppBarContent(),
-
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -177,13 +174,13 @@ Future<void> _handleRefresh() async {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-       child: const AppBarContent(),
-
+        child: const AppBarContent(),
       ),
       // Wrap the entire scrollable content with CustomRefreshIndicator.
       body: CustomRefreshIndicator(
         onRefresh: _handleRefresh,
-        builder: (BuildContext context, Widget child, IndicatorController controller) {
+        builder: (BuildContext context, Widget child,
+            IndicatorController controller) {
           return Stack(
             alignment: Alignment.topCenter,
             children: [
@@ -259,7 +256,8 @@ Future<void> _handleRefresh() async {
             builder: (context) => const MissionsScreen(),
           );
         },
-        backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
+        backgroundColor:
+            Theme.of(context).floatingActionButtonTheme.backgroundColor,
         child: const Icon(Icons.assignment),
       ),
       bottomNavigationBar: buildBottomNavBar(context),
@@ -275,33 +273,34 @@ Future<void> _handleRefresh() async {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           IconButton(
-            icon: const Icon(Icons.star_half_sharp, size: 21.0),
+            icon: const Icon(Icons.star_outline, size: 21.0),
             onPressed: () {
               Navigator.pushNamed(context, '/review');
             },
-            tooltip: 'Reviews',
+            tooltip: 'Favorites',
+          ),
+          
+          IconButton(
+            icon: const Icon(Icons.people_alt_outlined, size: 21.0),
+            onPressed: () {
+              Navigator.pushNamed(context, '/qr_code');
+            },
+            tooltip: 'Friends',
           ),
           IconButton(
-            icon: const Icon(Icons.home, size: 21.0),
+            icon: const Icon(Icons.home_outlined, size: 21.0),
             onPressed: () {},
             tooltip: 'Home',
           ),
           IconButton(
-            icon: const Icon(Icons.qr_code, size: 30.0),
-            onPressed: () {
-              Navigator.pushNamed(context, '/qr_code');
-            },
-            tooltip: 'QR Code',
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications, size: 21.0),
+            icon: const Icon(Icons.discount_outlined, size: 21.0),
             onPressed: () {
               Navigator.pushNamed(context, '/notifications');
             },
-            tooltip: 'Notifications',
+            tooltip: 'Promotions',
           ),
           IconButton(
-            icon: const Icon(Icons.person, size: 21.0),
+            icon: const Icon(Icons.person_outline, size: 21.0),
             onPressed: () {
               Navigator.pushNamed(context, '/profile');
             },

@@ -36,7 +36,7 @@ BottomAppBar buildBottomNavBar(BuildContext context) {
         ),
         // Notifications Button
         IconButton(
-          icon: const Icon(Icons.notifications, size: 21.0),
+          icon: const Icon(Icons.local_offer, size: 21.0),
           onPressed: () {
             Navigator.pushNamed(context, '/notifications');
           },

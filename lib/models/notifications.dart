@@ -30,28 +30,29 @@ class NotificationsPage extends StatelessWidget {
           children: <Widget>[
             _buildBottomNavItem(
               context,
-              Icons.star_half_outlined,
+              Icons.star_outline,
               'Reviews',
               () => Navigator.pushNamed(context, '/review'),
               iconSize: 21.0,
             ),
+          
             _buildBottomNavItem(
               context,
-              Icons.home,
+              Icons.people_alt_outlined,
+              'QR Code',
+              () => _showQRCodeModal(context),
+              iconSize: 21.0,
+            ),
+             _buildBottomNavItem(
+              context,
+              Icons.home_outlined,
               'Home',
               () => Navigator.pushNamed(context, '/main'),
               iconSize: 21.0,
             ),
             _buildBottomNavItem(
               context,
-              Icons.qr_code,
-              'QR Code',
-              () => _showQRCodeModal(context),
-              iconSize: 21.0,
-            ),
-            _buildBottomNavItem(
-              context,
-              Icons.notifications,
+              Icons.discount_outlined,
               'Notifications',
               () {
                 // Currently on Notifications, refresh or do nothing
@@ -60,7 +61,7 @@ class NotificationsPage extends StatelessWidget {
             ),
             _buildBottomNavItem(
               context,
-              Icons.person,
+              Icons.person_outline,
               'Profile',
               () => Navigator.pushNamed(context, '/profile'),
               iconSize: 21.0,
