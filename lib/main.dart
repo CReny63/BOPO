@@ -1,11 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
-import 'package:test/locations/fire_script.dart';
-import 'package:test/locations/firestore.dart';
 import 'package:test/locations/home_progress.dart';
 import 'package:test/models/reviews.dart' as review;
 import 'package:test/locations/geolocator.dart';
@@ -109,7 +105,7 @@ class _MyAppState extends State<MyApp> {
                 ),
             '/review': (context) {
               final themeProvider = Provider.of<ThemeProvider>(context);
-              return review.ReviewsPage(
+              return review.StoresPage(
                 toggleTheme: themeProvider.toggleTheme,
                 isDarkMode: themeProvider.isDarkMode,
               );

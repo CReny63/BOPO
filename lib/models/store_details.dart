@@ -45,6 +45,9 @@ class StoreDetailsScreen extends StatelessWidget {
     double distanceKm = distance / 1000;
     double distanceMiles = distanceKm * 0.621371;
 
+    // Determine the current theme's brightness.
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(store.name),
@@ -57,11 +60,22 @@ class StoreDetailsScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              QrImageView(
-                data: store.qrData,
-                version: QrVersions.auto,
-                size: 200.0,
-              ),
+             QrImageView(
+  data: store.qrData,
+  version: QrVersions.auto,
+  size: 200.0,
+  // Use circular shapes for a modern style.
+  eyeStyle: QrEyeStyle(
+    eyeShape: QrEyeShape.circle,
+    color: isDark ? Colors.white : Colors.black,
+  ),
+  dataModuleStyle: QrDataModuleStyle(
+    dataModuleShape: QrDataModuleShape.circle,
+    color: isDark ? Colors.white : Colors.black,
+  ),
+  backgroundColor: isDark ? Colors.black : Colors.white,
+),
+
               const SizedBox(height: 24.0),
               Text(
                 "Distance: ${distanceMiles.toStringAsFixed(2)} mi",

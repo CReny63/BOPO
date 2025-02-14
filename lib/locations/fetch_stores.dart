@@ -1,4 +1,3 @@
-// lib/services/store_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
@@ -6,7 +5,7 @@ import 'boba_store.dart';
 import 'geolocator.dart';
 
 class StoreService {
- final String apiEndpoint = 'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';
+ final String apiEndpoint = 'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json'; //realtime DB from firebase link
   final GeolocationService _geolocationService = GeolocationService();
 
   Future<Position> determinePosition() async {
@@ -47,22 +46,22 @@ Future<List<BobaStore>> fetchNearbyStores({
                   name.isNotEmpty) {
                 // Process the individual store record.
                 stores.add(BobaStore.fromJson(storeKey, storeData));
-                print("Added store '$storeKey' in '$cityName' with imagename='$imageName' and name='$name'");
+                //print("Added store '$storeKey' in '$cityName' with imagename='$imageName' and name='$name'");
               } else {
-                print("Skipping store '$storeKey' in '$cityName' because 'imagename' or 'name' is missing/empty");
+                //print("Skipping store '$storeKey' in '$cityName' because 'imagename' or 'name' is missing/empty");
               }
             }
           });
-          print("City '$cityName' processed.");
+          //print("City '$cityName' processed.");
         } else {
-          print("Skipping city '$cityName' because its data is not a Map<String, dynamic>.");
+          //print("Skipping city '$cityName' because its data is not a Map<String, dynamic>.");
         }
       });
     } else {
-      print("Unexpected data format: decoded data is not a Map<String, dynamic>.");
+      //print("Unexpected data format: decoded data is not a Map<String, dynamic>.");
     }
 
-    print("Total stores parsed: ${stores.length}");
+    //print("Total stores parsed: ${stores.length}");
     return stores;
   } else {
     throw Exception('Failed to load nearby stores');

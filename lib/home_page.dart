@@ -1,7 +1,5 @@
-// lib/home_page.dart
 import 'package:flutter/material.dart';
 import 'widgets/featured_item.dart';
-//import 'services/QRCode.dart';
 import 'package:provider/provider.dart';
 import 'home_viewmodel.dart';
 

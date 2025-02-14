@@ -9,22 +9,23 @@ class BobaStoreQRCodePage extends StatelessWidget {
   const BobaStoreQRCodePage({Key? key, required this.bobaStore}) : super(key: key);
 
   /// Generates the QR data payload as a JSON string.
-  /// You can add additional fields (like a timestamp or digital signature) if required.
   String generateQRData() {
     final Map<String, dynamic> payload = {
       'storeId': bobaStore.id, // Unique identifier for the store
       'name': bobaStore.name,
-      'latitude': bobaStore.latitude,   // Assumes bobaStore has a latitude field
-      'longitude': bobaStore.longitude, // Assumes bobaStore has a longitude field
-      'version': 1, // You can use a version number to track payload changes over time
+      'latitude': bobaStore.latitude,
+      'longitude': bobaStore.longitude,
+      'version': 1,
     };
-
     return jsonEncode(payload);
   }
 
   @override
   Widget build(BuildContext context) {
     final String qrData = generateQRData();
+
+    // Determine if the app is in dark mode.
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(title: Text('${bobaStore.name} QR Code')),
@@ -36,8 +37,15 @@ class BobaStoreQRCodePage extends StatelessWidget {
               data: qrData,
               version: QrVersions.auto,
               size: 250.0,
-              // Optionally, you can configure error correction level here:
-              // errorCorrectionLevel: QrErrorCorrectLevel.H,
+              // In dark mode, set the QR code (data modules and eyes) to white
+              // and the background to a dark color (like black).
+              eyeStyle: QrEyeStyle(
+                color: isDark ? Colors.white : Colors.black,
+              ),
+              dataModuleStyle: QrDataModuleStyle(
+                color: isDark ? Colors.white : Colors.black,
+              ),
+              backgroundColor: isDark ? Colors.black : Colors.white,
             ),
             const SizedBox(height: 20),
             Text(
@@ -46,7 +54,7 @@ class BobaStoreQRCodePage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              bobaStore.address, // Assumes bobaStore has an address field
+              bobaStore.address,
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),

@@ -1,13 +1,9 @@
-// lib/widgets/scan_task_widget.dart
-
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:test/services/theme_provider.dart'; // Adjust path as necessary
 
 class ScanTaskWidget extends StatelessWidget {
   final String description;
 
-  const ScanTaskWidget({Key? key, required this.description}) : super(key: key);
+  const ScanTaskWidget({super.key, required this.description});
 
   @override
   Widget build(BuildContext context) {

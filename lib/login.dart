@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/splash2.dart'; // Update path if necessary
 import '../services/theme_provider.dart';
 
 /// Google Sign-In logic

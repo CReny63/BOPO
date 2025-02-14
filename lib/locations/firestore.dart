@@ -5,7 +5,6 @@ import 'package:test/locations/boba_store.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart'; // Import geoflutterfire_plus
 
-/// -----------------------------
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 

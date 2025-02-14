@@ -10,9 +10,7 @@ import 'package:test/locations/geolocator.dart';
 import 'package:test/locations/nearby_stores.dart';
 import 'package:test/widgets/Greeting.dart';
 import 'package:test/widgets/app_bar_content.dart';
-import 'package:test/widgets/carousel_widget.dart';
 import 'package:test/widgets/missionScreen.dart';
-import 'package:test/widgets/circular_layout.dart';
 import 'package:test/widgets/promo.dart';
 import 'package:test/widgets/social_media.dart';
 
@@ -21,10 +19,10 @@ class HomeWithProgress extends StatefulWidget {
   final VoidCallback toggleTheme;
 
   const HomeWithProgress({
-    Key? key,
+    super.key,
     required this.isDarkMode,
     required this.toggleTheme,
-  }) : super(key: key);
+  });
 
   @override
   HomeWithProgressState createState() => HomeWithProgressState();
@@ -153,9 +151,9 @@ class HomeWithProgressState extends State<HomeWithProgress> {
 
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final double radius = min(screenWidth, screenHeight) / 4;
+    //final double screenWidth = MediaQuery.of(context).size.width;
+    //final double screenHeight = MediaQuery.of(context).size.height;
+    //final double radius = min(screenWidth, screenHeight) / 4;
 
     // Show a progress indicator if we don't have a valid position.
     if (_lastKnownPosition == null) {
@@ -168,8 +166,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
       );
     }
 
-    String greeting = getGreeting();
-    String currentDate = getCurrentDate();
+    String greeting = getGreeting(); //assign getG tp greeting
+    String currentDate = getCurrentDate(); //assign getCD to currentDate
 
     return Scaffold(
       appBar: PreferredSize(

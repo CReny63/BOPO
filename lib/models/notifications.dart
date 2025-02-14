@@ -15,9 +15,8 @@ class NotificationsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75), 
+        preferredSize: const Size.fromHeight(75),
         child: const AppBarContent(),
-
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: const Center(
@@ -28,43 +27,30 @@ class NotificationsPage extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
-            _buildBottomNavItem(
-              context,
-              Icons.star_outline,
-              'Reviews',
-              () => Navigator.pushNamed(context, '/review'),
-              iconSize: 21.0,
+            IconButton(
+              icon: const Icon(Icons.star_outline, size: 21.0),
+              tooltip: 'Reviews',
+              onPressed: () => Navigator.pushNamed(context, '/review'),
             ),
-          
-            _buildBottomNavItem(
-              context,
-              Icons.people_alt_outlined,
-              'QR Code',
-              () => _showQRCodeModal(context),
-              iconSize: 21.0,
+            IconButton(
+              icon: const Icon(Icons.people_alt_outlined, size: 21.0),
+              tooltip: 'QR Code',
+              onPressed: () => _showQRCodeModal(context),
             ),
-             _buildBottomNavItem(
-              context,
-              Icons.home_outlined,
-              'Home',
-              () => Navigator.pushNamed(context, '/main'),
-              iconSize: 21.0,
+            IconButton(
+              icon: const Icon(Icons.home_outlined, size: 21.0),
+              tooltip: 'Home',
+              onPressed: () => Navigator.pushNamed(context, '/main'),
             ),
-            _buildBottomNavItem(
-              context,
-              Icons.discount_outlined,
-              'Notifications',
-              () {
-                // Currently on Notifications, refresh or do nothing
-              },
-              iconSize: 21.0,
+            IconButton(
+              icon: const Icon(Icons.discount_outlined, size: 21.0),
+              tooltip: 'Notifications',
+              onPressed: () {}, //already on noti page...
             ),
-            _buildBottomNavItem(
-              context,
-              Icons.person_outline,
-              'Profile',
-              () => Navigator.pushNamed(context, '/profile'),
-              iconSize: 21.0,
+            IconButton(
+              icon: const Icon(Icons.person_outline, size: 21.0),
+              tooltip: 'Profile',
+              onPressed: () => Navigator.pushNamed(context, '/profile'),
             ),
           ],
         ),
@@ -72,29 +58,29 @@ class NotificationsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomNavItem(
-      BuildContext context,
-      IconData iconData,
-      String tooltipMessage,
-      VoidCallback onTap, {
-        double iconSize = 24.0,
-      }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Tooltip(
-            message: tooltipMessage,
-            child: Icon(
-              iconData,
-              size: iconSize,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // Widget _buildBottomNavItem(
+  //     BuildContext context,
+  //     IconData iconData,
+  //     String tooltipMessage,
+  //     VoidCallback onTap, {
+  //       double iconSize = 24.0,
+  //     }) {
+  //   return Expanded(
+  //     child: InkWell(
+  //       onTap: onTap,
+  //       child: Padding(
+  //         padding: const EdgeInsets.symmetric(vertical: 8.0),
+  //         child: Tooltip(
+  //           message: tooltipMessage,
+  //           child: Icon(
+  //             iconData,
+  //             size: iconSize,
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   void _showQRCodeModal(BuildContext context) {
     showDialog(

@@ -1,196 +1,268 @@
+import 'dart:math';
+import 'dart:convert';
+import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // For formatting the date
-import 'package:test/widgets/app_bar_content.dart'; // Custom AppBarContent
+import 'package:geolocator/geolocator.dart';
+import 'package:test/locations/boba_store.dart'; // Your BobaStore class
+import 'package:test/models/store_details.dart'; // Contains your StoreDetailsScreen
+import 'package:test/widgets/app_bar_content.dart';
 
-class ReviewsPage extends StatefulWidget {
+class StoresPage extends StatefulWidget {
   final VoidCallback toggleTheme;
   final bool isDarkMode;
 
-  const ReviewsPage({
-    super.key,
+  const StoresPage({
+    Key? key,
     required this.toggleTheme,
     required this.isDarkMode,
-  });
+  }) : super(key: key);
 
   @override
-  _ReviewsPageState createState() => _ReviewsPageState();
+  _StoresPageState createState() => _StoresPageState();
 }
 
-class _ReviewsPageState extends State<ReviewsPage> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _commentController = TextEditingController();
+class _StoresPageState extends State<StoresPage> {
+  // Reference to the "stores" node in Firebase Realtime Database.
+  final DatabaseReference _storesRef =
+      FirebaseDatabase.instance.ref().child('stores');
+  Position? userPosition;
 
-  int _rating = 0;
-  List<Map<String, dynamic>> _reviews = [];
+  @override
+  void initState() {
+    super.initState();
+    _getUserLocation();
+  }
+
+  /// Fetches the current user position.
+  Future<void> _getUserLocation() async {
+    try {
+      Position pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      print("User position: $pos");
+      setState(() {
+        userPosition = pos;
+      });
+    } catch (e) {
+      print("Error getting user location: $e");
+    }
+  }
+
+  /// Pull-to-refresh callback: clears the current location,
+  /// re-fetches it, and waits briefly for the animation.
+  Future<void> _handleRefresh() async {
+    setState(() {
+      userPosition = null;
+    });
+    await _getUserLocation();
+    // Optional delay so the refresh animation is visible.
+    await Future.delayed(const Duration(milliseconds: 1000));
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Use themeColor from current theme for title text
-    final Color themeColor =
-        Theme.of(context).floatingActionButtonTheme.backgroundColor ??
-            Colors.black;
+    // Show a loader until we have the user's location.
+    if (userPosition == null) {
+      return Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(75),
+          child: const AppBarContent(),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: const AppBarContent(),
       ),
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+      body: CustomRefreshIndicator(
+        onRefresh: _handleRefresh,
+        builder: (BuildContext context, Widget child, IndicatorController controller) {
+          return Stack(
+            alignment: Alignment.topCenter,
             children: [
-              // Title Section
-              Text(
-                'Reviews',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: themeColor,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Rating input section
-              Center(
-                child: Row(
-                  mainAxisSize:
-                      MainAxisSize.min, // Row occupies minimal horizontal space
-                  children: [
-                    const Text(
-                      'Rating: ',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                    ...List.generate(5, (index) {
-                      return IconButton(
-                        icon: Icon(
-                          Icons.star,
-                          color: _rating > index ? Colors.black : Colors.grey,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _rating = index + 1;
-                          });
-                        },
-                      );
-                    }),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Comment input field
-              // Wrap the comment TextField with a Container or SizedBox
-              SizedBox(
-                width: 250, // Set desired width
-                height:
-                    100, // Set desired height (optional for multi-line inputs)
-                child: TextField(
-                  controller: _commentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Leave your feedback...',
-                    labelStyle: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
-                    filled: true,
-                    fillColor: Colors.white70,
-                    border: OutlineInputBorder(),
+              // Animate the capybara icon during pull-to-refresh.
+              Transform.translate(
+                offset: Offset(0, controller.value * 100 - 50),
+                child: Opacity(
+                  opacity: min(controller.value, 1.0),
+                  child: Image.asset(
+                    'assets/capy_boba.png', // Ensure this asset exists and is listed in pubspec.yaml.
+                    width: 50,
+                    height: 50,
                   ),
-                  maxLines: 3,
                 ),
               ),
-              const SizedBox(height: 10),
-
-              const SizedBox(height: 20),
-
-              // Submit button
-              ElevatedButton(
-                onPressed: () {
-                  if (_rating > 0 &&
-                      _commentController.text.isNotEmpty &&
-                      _nameController.text.isNotEmpty) {
-                    final now = DateTime.now();
-                    final formattedDate =
-                        DateFormat('yyyy-MM-dd HH:mm').format(now);
-                    setState(() {
-                      _reviews.add({
-                        'name': _nameController.text,
-                        'rating': _rating,
-                        'comment': _commentController.text,
-                        'date': formattedDate,
-                      });
-                      _commentController.clear();
-                      _nameController.clear();
-                      _rating = 0;
-                    });
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.orange,
-                ),
-                child: const Text('Submit Review'),
-              ),
-              const SizedBox(height: 20),
-
-              // All Reviews header
-              const Text(
-                'All Reviews',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _reviews.length,
-                  itemBuilder: (context, index) {
-                    final review = _reviews[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      color: Colors.white,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(8.0),
-                        title: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                ...List.generate(review['rating'], (index) {
-                                  return const Icon(Icons.star,
-                                      color: Colors.orange);
-                                }),
-                                const SizedBox(width: 8),
-                                Text(
-                                  review['name'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(review['comment']),
-                            const SizedBox(height: 8),
-                            Text(
-                              review['date'],
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              // Move the child (our main content) down as the pull occurs.
+              Transform.translate(
+                offset: Offset(0, controller.value * 100),
+                child: child,
               ),
             ],
-          ),
+          );
+        },
+        child: StreamBuilder<DatabaseEvent>(
+          stream: _storesRef.onValue,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text("Error: ${snapshot.error}"));
+            }
+            if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            // Debug: print raw snapshot data.
+            print("Raw snapshot: ${snapshot.data!.snapshot.value}");
+
+            // Parse the Firebase data.
+            final dynamic decoded = snapshot.data!.snapshot.value;
+            List<BobaStore> storeList = [];
+            if (decoded is Map) {
+              final Map<String, dynamic> cities = Map<String, dynamic>.from(decoded);
+              cities.forEach((cityName, cityData) {
+                if (cityData is Map) {
+                  final Map<String, dynamic> storesMap = Map<String, dynamic>.from(cityData);
+                  storesMap.forEach((storeKey, storeData) {
+                    // Process only if storeData is a Map and contains a 'name'.
+                    if (storeData is Map && storeData.containsKey('name')) {
+                      final Map<String, dynamic> storeMap = Map<String, dynamic>.from(storeData);
+                      // Inject the city name into the store data.
+                      storeMap['city'] = cityName;
+                      BobaStore store = BobaStore.fromJson(storeKey, storeMap);
+                      storeList.add(store);
+                    } else {
+                      print("Skipping key '$storeKey' in city '$cityName' as it's not a valid store record.");
+                    }
+                  });
+                  print("City '$cityName' processed with ${storesMap.length} entries.");
+                } else {
+                  print("Skipping city '$cityName' because its data is not a Map.");
+                }
+              });
+            } else {
+              print("Decoded data is not a Map.");
+            }
+
+            print("Total stores parsed: ${storeList.length}");
+            if (storeList.isEmpty) {
+              return const Center(child: Text("No stores found."));
+            }
+
+            // Sort the stores by distance from the user.
+            storeList.sort((a, b) {
+              double distanceA = Geolocator.distanceBetween(
+                userPosition!.latitude,
+                userPosition!.longitude,
+                a.latitude,
+                a.longitude,
+              );
+              double distanceB = Geolocator.distanceBetween(
+                userPosition!.latitude,
+                userPosition!.longitude,
+                b.latitude,
+                b.longitude,
+              );
+              return distanceA.compareTo(distanceB);
+            });
+
+            // For debugging, display all stores.
+            List<BobaStore> displayStores = storeList;
+
+            // For each store, if the user is within 100 meters, update the visit count.
+            for (BobaStore store in displayStores) {
+              double distance = Geolocator.distanceBetween(
+                userPosition!.latitude,
+                userPosition!.longitude,
+                store.latitude,
+                store.longitude,
+              );
+              if (distance < 100) {
+                int currentVisits = store.visits;
+                currentVisits++;
+                store.visits = currentVisits;
+                print("Incrementing visits for store ${store.id}, new visits: $currentVisits");
+                _storesRef.child(store.id).update({'visits': currentVisits});
+              }
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: displayStores.length,
+              itemBuilder: (context, index) {
+                final store = displayStores[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  elevation: 3,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(8),
+                    // Constrain the leading widget.
+                    leading: SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8.0),
+                        child: Builder(
+                          builder: (context) {
+                            if (store.imageName.isNotEmpty && !store.imageName.startsWith('http')) {
+                              // Use asset image; append .png to the asset filename.
+                              return Image.asset(
+                                'assets/${store.imageName}.png',
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              );
+                            } else if (store.imageName.startsWith('http')) {
+                              // Use network image.
+                              return Image.network(
+                                store.imageName,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              );
+                            } else {
+                              // Fallback default image.
+                              return Image.asset(
+                                'assets/default_image.png',
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      store.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(store.address),
+                        Text("${store.city}, ${store.state}"),
+                        Text("Visits: ${store.visits}"),
+                      ],
+                    ),
+                    onTap: () {
+                      // Navigate to the store details screen.
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoreDetailsScreen(
+                            store: store,
+                            userPosition: userPosition!,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
       bottomNavigationBar: BottomAppBar(
@@ -201,16 +273,14 @@ class _ReviewsPageState extends State<ReviewsPage> {
             IconButton(
               icon: const Icon(Icons.star_outline, size: 21.0),
               tooltip: 'Reviews',
-              onPressed: () {
-                // Already on Reviews
-              },
+              onPressed: () => Navigator.pushNamed(context, '/reviews'),
             ),
             IconButton(
               icon: const Icon(Icons.people_alt_outlined, size: 21.0),
               tooltip: 'QR Code',
-              onPressed: () => _showQRCodeModal(context),
+              onPressed: () => Navigator.pushNamed(context, '/qr_code'),
             ),
-             IconButton(
+            IconButton(
               icon: const Icon(Icons.home_outlined, size: 21.0),
               tooltip: 'Home',
               onPressed: () => Navigator.pushNamed(context, '/main'),
@@ -228,18 +298,6 @@ class _ReviewsPageState extends State<ReviewsPage> {
           ],
         ),
       ),
-    );
-  }
-
-  void _showQRCodeModal(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return const AlertDialog(
-          title: Text('QR Code'),
-          content: Text('QR Code content here'),
-        );
-      },
     );
   }
 }
