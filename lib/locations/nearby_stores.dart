@@ -7,7 +7,7 @@ import 'package:test/locations/geolocator.dart';
 import 'package:test/widgets/circular_layout.dart'; // Use the updated circular layout
 
 class NearbyStoresWidget extends StatefulWidget {
-  const NearbyStoresWidget({Key? key, required List<BobaStore> stores, required Position userPosition, required String userLocationText}) : super(key: key);
+  const NearbyStoresWidget({super.key, required List<BobaStore> stores, required Position userPosition, required String userLocationText});
 
   @override
   _NearbyStoresWidgetState createState() => _NearbyStoresWidgetState();
@@ -57,13 +57,12 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
                   storeData['city'] = cityName;
                   // You can also perform additional validations here if needed.
                   fetchedStores.add(BobaStore.fromJson(storeKey, storeData));
-                  print("Added store '$storeKey' in '$cityName' with "
-                      "imagename='${storeData['imagename']}', name='${storeData['name']}'");
+                 // print("Added store '$storeKey' in '$cityName' with " "imagename='${storeData['imagename']}', name='${storeData['name']}'");
                 }
               });
-              print("City '$cityName' processed.");
+              //print("City '$cityName' processed.");
             } else {
-              print("Skipping city '$cityName' because its data is not a Map.");
+              //print("Skipping city '$cityName' because its data is not a Map.");
             }
           });
         } else if (decoded is List) {

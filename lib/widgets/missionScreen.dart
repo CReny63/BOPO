@@ -1,11 +1,10 @@
-// missions_screen.dart
 import 'package:flutter/material.dart';
 
 class Mission {
   final String title;
   final String description;
-  final int current;
   final int goal;
+  final int current;
 
   const Mission({
     required this.title,
@@ -16,32 +15,41 @@ class Mission {
 }
 
 class MissionsScreen extends StatelessWidget {
-  const MissionsScreen({Key? key}) : super(key: key);
+  // A set of unique scanned store IDs.
+  final Set<String> scannedStoreIds;
 
-  // Dummy list of missions. In a real app, these values would be dynamic.
-  final List<Mission> missions = const [
-    Mission(
-      title: "Scan 3 Unique Stores",
-      description: "Scan the QR codes at 3 different stores to unlock your reward!",
-      current: 1,
-      goal: 3,
-    ),
-    Mission(
-      title: "Scan 5 Unique Stores",
-      description: "Scan the QR codes at 5 different stores to unlock a bonus!",
-      current: 2,
-      goal: 5,
-    ),
-    Mission(
-      title: "Scan 10 Unique Stores",
-      description: "Complete scanning at 10 unique stores for a major reward!",
-      current: 0,
-      goal: 10,
-    ),
-  ];
+  const MissionsScreen({Key? key, required this.scannedStoreIds}) : super(key: key);
+
+  /// Generates a list of missions with their current progress updated
+  /// based on the number of unique store scans.
+  List<Mission> getMissions() {
+    final int uniqueCount = scannedStoreIds.length;
+    return [
+      Mission(
+        title: "Scan 3 Unique Stores",
+        description: "Scan the QR codes at 3 different stores to unlock your reward!",
+        current: uniqueCount >= 3 ? 3 : uniqueCount,
+        goal: 3,
+      ),
+      Mission(
+        title: "Scan 5 Unique Stores",
+        description: "Scan the QR codes at 5 different stores to unlock a bonus!",
+        current: uniqueCount >= 5 ? 5 : uniqueCount,
+        goal: 5,
+      ),
+      Mission(
+        title: "Scan 10 Unique Stores",
+        description: "Complete scanning at 10 unique stores for a major reward!",
+        current: uniqueCount >= 10 ? 10 : uniqueCount,
+        goal: 10,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final missions = getMissions();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Missions"),

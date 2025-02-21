@@ -149,11 +149,17 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     await Future.delayed(const Duration(milliseconds: 1000));
   }
 
+  void processStoreScan(String storeId) {
+    if (!scannedStoreIds.contains(storeId)) {
+      setState(() {
+        scannedStoreIds.add(storeId);
+      });
+      // Optionally update backend or local storage here.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    //final double screenWidth = MediaQuery.of(context).size.width;
-    //final double screenHeight = MediaQuery.of(context).size.height;
-    //final double radius = min(screenWidth, screenHeight) / 4;
 
     // Show a progress indicator if we don't have a valid position.
     if (_lastKnownPosition == null) {
@@ -247,17 +253,21 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => const MissionsScreen(),
-          );
-        },
-        backgroundColor:
-            Theme.of(context).floatingActionButtonTheme.backgroundColor,
-        child: const Icon(Icons.assignment),
+     floatingActionButton: FloatingActionButton(
+  onPressed: () {
+    // Replace 'myUniqueScannedStoreSet' with your actual variable storing scanned store IDs.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MissionsScreen(scannedStoreIds: scannedStoreIds),
       ),
+    );
+  },
+  backgroundColor:
+      Theme.of(context).floatingActionButtonTheme.backgroundColor,
+  child: const Icon(Icons.assignment),
+),
+
       bottomNavigationBar: buildBottomNavBar(context),
     );
   }

@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:convert';
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -13,10 +12,10 @@ class StoresPage extends StatefulWidget {
   final bool isDarkMode;
 
   const StoresPage({
-    Key? key,
+    super.key,
     required this.toggleTheme,
     required this.isDarkMode,
-  }) : super(key: key);
+  });
 
   @override
   _StoresPageState createState() => _StoresPageState();
@@ -27,6 +26,7 @@ class _StoresPageState extends State<StoresPage> {
   final DatabaseReference _storesRef =
       FirebaseDatabase.instance.ref().child('stores');
   Position? userPosition;
+  
 
   @override
   void initState() {
