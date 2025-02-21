@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:test/locations/boba_store.dart'; // Your BobaStore class
 import 'package:test/models/store_details.dart'; // Contains your StoreDetailsScreen
 import 'package:test/widgets/app_bar_content.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class StoresPage extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -26,7 +27,9 @@ class _StoresPageState extends State<StoresPage> {
   final DatabaseReference _storesRef =
       FirebaseDatabase.instance.ref().child('stores');
   Position? userPosition;
-  
+
+  // Maintain a set of favorite store IDs.
+  final Set<String> favoriteStoreIds = {};
 
   @override
   void initState() {
@@ -64,18 +67,18 @@ class _StoresPageState extends State<StoresPage> {
     // Show a loader until we have the user's location.
     if (userPosition == null) {
       return Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(75),
-          child: const AppBarContent(),
+        appBar: const PreferredSize(
+          preferredSize: Size.fromHeight(75),
+          child: AppBarContent(),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: const AppBarContent(),
+      appBar: const PreferredSize(
+        preferredSize: Size.fromHeight(75),
+        child: AppBarContent(),
       ),
       body: CustomRefreshIndicator(
         onRefresh: _handleRefresh,
@@ -83,22 +86,26 @@ class _StoresPageState extends State<StoresPage> {
           return Stack(
             alignment: Alignment.topCenter,
             children: [
-              // Animate the capybara icon during pull-to-refresh.
-              Transform.translate(
-                offset: Offset(0, controller.value * 100 - 50),
-                child: Opacity(
-                  opacity: min(controller.value, 1.0),
-                  child: Image.asset(
-                    'assets/capy_boba.png', // Ensure this asset exists and is listed in pubspec.yaml.
-                    width: 50,
-                    height: 50,
+              // Wrap the animated capybara icon in a RepaintBoundary.
+              RepaintBoundary(
+                child: Transform.translate(
+                  offset: Offset(0, controller.value * 100 - 50),
+                  child: Opacity(
+                    opacity: min(controller.value, 1.0),
+                    child: Image.asset(
+                      'assets/capy_boba.png', // Ensure this asset exists and is listed in pubspec.yaml.
+                      width: 50,
+                      height: 50,
+                    ),
                   ),
                 ),
               ),
-              // Move the child (our main content) down as the pull occurs.
-              Transform.translate(
-                offset: Offset(0, controller.value * 100),
-                child: child,
+              // Wrap the child in a RepaintBoundary to reduce repaints.
+              RepaintBoundary(
+                child: Transform.translate(
+                  offset: Offset(0, controller.value * 100),
+                  child: child,
+                ),
               ),
             ],
           );
@@ -125,10 +132,8 @@ class _StoresPageState extends State<StoresPage> {
                 if (cityData is Map) {
                   final Map<String, dynamic> storesMap = Map<String, dynamic>.from(cityData);
                   storesMap.forEach((storeKey, storeData) {
-                    // Process only if storeData is a Map and contains a 'name'.
                     if (storeData is Map && storeData.containsKey('name')) {
                       final Map<String, dynamic> storeMap = Map<String, dynamic>.from(storeData);
-                      // Inject the city name into the store data.
                       storeMap['city'] = cityName;
                       BobaStore store = BobaStore.fromJson(storeKey, storeMap);
                       storeList.add(store);
@@ -150,8 +155,12 @@ class _StoresPageState extends State<StoresPage> {
               return const Center(child: Text("No stores found."));
             }
 
-            // Sort the stores by distance from the user.
+            // Sort the stores so that favorites appear at the top, then by distance.
             storeList.sort((a, b) {
+              bool aFav = favoriteStoreIds.contains(a.id);
+              bool bFav = favoriteStoreIds.contains(b.id);
+              if (aFav && !bFav) return -1;
+              if (!aFav && bFav) return 1;
               double distanceA = Geolocator.distanceBetween(
                 userPosition!.latitude,
                 userPosition!.longitude,
@@ -167,25 +176,8 @@ class _StoresPageState extends State<StoresPage> {
               return distanceA.compareTo(distanceB);
             });
 
-            // For debugging, display all stores.
-            List<BobaStore> displayStores = storeList;
-
-            // For each store, if the user is within 100 meters, update the visit count.
-            for (BobaStore store in displayStores) {
-              double distance = Geolocator.distanceBetween(
-                userPosition!.latitude,
-                userPosition!.longitude,
-                store.latitude,
-                store.longitude,
-              );
-              if (distance < 100) {
-                int currentVisits = store.visits;
-                currentVisits++;
-                store.visits = currentVisits;
-                print("Incrementing visits for store ${store.id}, new visits: $currentVisits");
-                _storesRef.child(store.id).update({'visits': currentVisits});
-              }
-            }
+            // Only display the first 6 stores.
+            List<BobaStore> displayStores = storeList.take(6).toList();
 
             return ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -197,7 +189,6 @@ class _StoresPageState extends State<StoresPage> {
                   elevation: 3,
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(8),
-                    // Constrain the leading widget.
                     leading: SizedBox(
                       width: 80,
                       height: 80,
@@ -205,24 +196,28 @@ class _StoresPageState extends State<StoresPage> {
                         borderRadius: BorderRadius.circular(8.0),
                         child: Builder(
                           builder: (context) {
+                            // Use asset image if imageName is provided and not a URL.
                             if (store.imageName.isNotEmpty && !store.imageName.startsWith('http')) {
-                              // Use asset image; append .png to the asset filename.
                               return Image.asset(
                                 'assets/${store.imageName}.png',
                                 width: 80,
                                 height: 80,
                                 fit: BoxFit.cover,
                               );
-                            } else if (store.imageName.startsWith('http')) {
-                              // Use network image.
-                              return Image.network(
-                                store.imageName,
+                            } 
+                            // Use CachedNetworkImage for network images.
+                            else if (store.imageName.startsWith('http')) {
+                              return CachedNetworkImage(
+                                imageUrl: store.imageName,
                                 width: 80,
                                 height: 80,
                                 fit: BoxFit.cover,
+                                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                errorWidget: (context, url, error) => const Icon(Icons.error),
                               );
-                            } else {
-                              // Fallback default image.
+                            } 
+                            // Fallback to default asset image.
+                            else {
                               return Image.asset(
                                 'assets/default_image.png',
                                 width: 80,
@@ -245,6 +240,27 @@ class _StoresPageState extends State<StoresPage> {
                         Text("${store.city}, ${store.state}"),
                         Text("Visits: ${store.visits}"),
                       ],
+                    ),
+                    trailing: IconButton(
+                      icon: Icon(
+                        favoriteStoreIds.contains(store.id)
+                            ? Icons.star
+                            : Icons.star_border,
+                        color: favoriteStoreIds.contains(store.id)
+                            ? Colors.amber
+                            : null,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          // Toggle favorite status.
+                          if (favoriteStoreIds.contains(store.id)) {
+                            favoriteStoreIds.remove(store.id);
+                          } else {
+                            favoriteStoreIds.add(store.id);
+                          }
+                          // After toggling, re-sort the list so favorites come to the top.
+                        });
+                      },
                     ),
                     onTap: () {
                       // Navigate to the store details screen.

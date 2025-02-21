@@ -13,6 +13,7 @@ import 'package:test/widgets/app_bar_content.dart';
 import 'package:test/widgets/missionScreen.dart';
 import 'package:test/widgets/promo.dart';
 import 'package:test/widgets/social_media.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeWithProgress extends StatefulWidget {
   final bool isDarkMode;
@@ -84,7 +85,6 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   }
 
   /// Determine position, fetch stores, and sort them.
-
   Future<void> _sortStoresByDistance() async {
     try {
       Position userPosition = await _geoService.determinePosition();
@@ -160,115 +160,114 @@ class HomeWithProgressState extends State<HomeWithProgress> {
 
   @override
   Widget build(BuildContext context) {
-
-    // Show a progress indicator if we don't have a valid position.
+    // If no valid position, show a loading indicator.
     if (_lastKnownPosition == null) {
-      return Scaffold(
+      return WillPopScope(
+        onWillPop: () async => false, // Disable back button
+        child: Scaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(75),
+            child: const AppBarContent(),
+          ),
+          body: const Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    String greeting = getGreeting();
+    String currentDate = getCurrentDate();
+
+    return WillPopScope(
+      onWillPop: () async => false, // Disable back button on this screen
+      child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
           child: const AppBarContent(),
         ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    String greeting = getGreeting(); //assign getG tp greeting
-    String currentDate = getCurrentDate(); //assign getCD to currentDate
-
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: const AppBarContent(),
-      ),
-      // Wrap the entire scrollable content with CustomRefreshIndicator.
-      body: CustomRefreshIndicator(
-        onRefresh: _handleRefresh,
-        builder: (BuildContext context, Widget child,
-            IndicatorController controller) {
-          return Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              // Animate the capybara icon.
-              Transform.translate(
-                offset: Offset(0, controller.value * 100 - 50),
-                child: Opacity(
-                  opacity: min(controller.value, 1.0),
-                  child: Image.asset(
-                    'assets/capy_boba.png', // Ensure this asset exists.
-                    width: 50,
-                    height: 50,
-                  ),
-                ),
-              ),
-              // Translate the entire scrollable child downward as the pull occurs.
-              Transform.translate(
-                offset: Offset(0, controller.value * 100),
-                child: child,
-              ),
-            ],
-          );
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        // Wrap scrollable content with a custom refresh indicator.
+        body: CustomRefreshIndicator(
+          onRefresh: _handleRefresh,
+          builder: (BuildContext context, Widget child, IndicatorController controller) {
+            return Stack(
+              alignment: Alignment.topCenter,
               children: [
-                const SizedBox(height: 20),
-                Text(
-                  greeting,
-                  style: TextStyle(
-                    fontSize: 21,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                    fontFamily: 'Roboto',
+                // Animated capybara icon.
+                Transform.translate(
+                  offset: Offset(0, controller.value * 100 - 50),
+                  child: Opacity(
+                    opacity: min(controller.value, 1.0),
+                    child: Image.asset(
+                      'assets/capy_boba.png', // Ensure this asset exists.
+                      width: 50,
+                      height: 50,
+                    ),
                   ),
                 ),
-                Text(
-                  currentDate,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                  ),
+                // Translate the child down as the pull occurs.
+                Transform.translate(
+                  offset: Offset(0, controller.value * 100),
+                  child: child,
                 ),
-                const SizedBox(height: 20),
-                // Use the realtime-fetched list via NearbyStoresWidget.
-                SizedBox(
-                  height: 400,
-                  child: NearbyStoresWidget(
-                    stores: sortedStores, // Pass our realtime data list.
-                    userPosition: _lastKnownPosition!,
-                    userLocationText: city,
-                  ),
-                ),
-                //const SizedBox(height: 100),
-                //Center(child: CarouselWidget()),
-                const SizedBox(height: 120),
-                const PromoBanner(),
-                const SizedBox(height: 30),
-                const SocialMediaLinks(),
-                const SizedBox(height: 30),
               ],
+            );
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    greeting,
+                    style: TextStyle(
+                      fontSize: 21,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                      fontFamily: 'Roboto',
+                    ),
+                  ),
+                  Text(
+                    currentDate,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Display the realtime-fetched list via NearbyStoresWidget.
+                  SizedBox(
+                    height: 400,
+                    child: NearbyStoresWidget(
+                      stores: sortedStores,
+                      userPosition: _lastKnownPosition!,
+                      userLocationText: city,
+                    ),
+                  ),
+                  const SizedBox(height: 120),
+                  const PromoBanner(),
+                  const SizedBox(height: 30),
+                  const SocialMediaLinks(),
+                  const SizedBox(height: 30),
+                ],
+              ),
             ),
           ),
         ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MissionsScreen(scannedStoreIds: scannedStoreIds),
+              ),
+            );
+          },
+          backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
+          child: const Icon(Icons.assignment),
+        ),
+        bottomNavigationBar: buildBottomNavBar(context),
       ),
-     floatingActionButton: FloatingActionButton(
-  onPressed: () {
-    // Replace 'myUniqueScannedStoreSet' with your actual variable storing scanned store IDs.
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MissionsScreen(scannedStoreIds: scannedStoreIds),
-      ),
-    );
-  },
-  backgroundColor:
-      Theme.of(context).floatingActionButtonTheme.backgroundColor,
-  child: const Icon(Icons.assignment),
-),
-
-      bottomNavigationBar: buildBottomNavBar(context),
     );
   }
 
@@ -287,7 +286,6 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             },
             tooltip: 'Favorites',
           ),
-          
           IconButton(
             icon: const Icon(Icons.people_alt_outlined, size: 21.0),
             onPressed: () {

@@ -14,9 +14,7 @@ class NearbyStoresWidget extends StatefulWidget {
 }
 
 class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
-  // Your Realtime Database endpoint (with .json)
-  final String apiEndpoint =
-      'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';
+  final String apiEndpoint = 'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';//Realtime Database endpoint (with .json)
   List<BobaStore> stores = [];
   bool isLoading = true;
   Position? userPosition;

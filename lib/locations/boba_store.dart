@@ -30,24 +30,30 @@ class BobaStore {
   });
 
   factory BobaStore.fromJson(String id, Map<String, dynamic> json) {
-    if (kDebugMode) {
-      print("Parsing store with id: $id, data: $json");
-    }
-    return BobaStore(
-      id: id,
-      name: json['name'] ?? 'Unknown Name',
-      imageName: json.containsKey('imagename') && json['imagename'] != null
-          ? json['imagename']
-          : 'default_image',
-      qrData: json['qrdata'] ?? 'No QR Data',
-      latitude: (json['lat'] as num?)?.toDouble() ?? 0.0,
-      longitude: (json['lng'] as num?)?.toDouble() ?? 0.0,
-      address: json['address'] ?? 'No Address',
-      city: json['city'] ?? 'Unknown City',
-      state: json['state'] ?? 'Unknown State',
-      zip: json['zip'] ?? '',
-      visits: json['visits'] != null ? json['visits'] as int : 0,
-      isFavorite: json['isFavorite'] ?? false,
-    );
+  // Retrieve the city from the JSON, or use a default value.
+  final String cityName = json['city'] ?? 'UnknownCity';
+  // Create a unique ID by concatenating the city name and the key.
+  final String uniqueId = "${cityName}_$id";
+  
+  if (kDebugMode) {
+    print("Parsing store with unique id: $uniqueId, data: $json");
   }
+  
+  return BobaStore(
+    id: uniqueId,
+    name: json['name'] ?? 'Unknown Name',
+    imageName: json.containsKey('imagename') && json['imagename'] != null
+        ? json['imagename']
+        : 'default_image',
+    qrData: json['qrdata'] ?? 'No QR Data',
+    latitude: (json['lat'] as num?)?.toDouble() ?? 0.0,
+    longitude: (json['lng'] as num?)?.toDouble() ?? 0.0,
+    address: json['address'] ?? 'No Address',
+    city: cityName,
+    state: json['state'] ?? 'Unknown State',
+    zip: json['zip'] ?? '',
+    visits: json['visits'] != null ? json['visits'] as int : 0,
+    isFavorite: json['isFavorite'] ?? false,
+  );
+ }
 }
