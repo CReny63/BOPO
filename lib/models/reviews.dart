@@ -6,7 +6,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:test/locations/boba_store.dart'; // Your BobaStore class
 import 'package:test/models/store_details.dart'; // Contains your StoreDetailsScreen
 import 'package:test/widgets/app_bar_content.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class StoresPage extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -51,14 +50,12 @@ class _StoresPageState extends State<StoresPage> {
     }
   }
 
-  /// Pull-to-refresh callback: clears the current location,
-  /// re-fetches it, and waits briefly for the animation.
+  /// Pull-to-refresh callback.
   Future<void> _handleRefresh() async {
     setState(() {
       userPosition = null;
     });
     await _getUserLocation();
-    // Optional delay so the refresh animation is visible.
     await Future.delayed(const Duration(milliseconds: 1000));
   }
 
@@ -82,25 +79,25 @@ class _StoresPageState extends State<StoresPage> {
       ),
       body: CustomRefreshIndicator(
         onRefresh: _handleRefresh,
-        builder: (BuildContext context, Widget child, IndicatorController controller) {
+        builder: (BuildContext context, Widget child,
+            IndicatorController controller) {
           return Stack(
             alignment: Alignment.topCenter,
             children: [
-              // Wrap the animated capybara icon in a RepaintBoundary.
+              // Animated capybara icon.
               RepaintBoundary(
                 child: Transform.translate(
                   offset: Offset(0, controller.value * 100 - 50),
                   child: Opacity(
                     opacity: min(controller.value, 1.0),
                     child: Image.asset(
-                      'assets/capy_boba.png', // Ensure this asset exists and is listed in pubspec.yaml.
+                      'assets/capy_boba.png',
                       width: 50,
                       height: 50,
                     ),
                   ),
                 ),
               ),
-              // Wrap the child in a RepaintBoundary to reduce repaints.
               RepaintBoundary(
                 child: Transform.translate(
                   offset: Offset(0, controller.value * 100),
@@ -120,30 +117,33 @@ class _StoresPageState extends State<StoresPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            // Debug: print raw snapshot data.
-            print("Raw snapshot: ${snapshot.data!.snapshot.value}");
-
             // Parse the Firebase data.
             final dynamic decoded = snapshot.data!.snapshot.value;
             List<BobaStore> storeList = [];
             if (decoded is Map) {
-              final Map<String, dynamic> cities = Map<String, dynamic>.from(decoded);
+              final Map<String, dynamic> cities =
+                  Map<String, dynamic>.from(decoded);
               cities.forEach((cityName, cityData) {
                 if (cityData is Map) {
-                  final Map<String, dynamic> storesMap = Map<String, dynamic>.from(cityData);
+                  final Map<String, dynamic> storesMap =
+                      Map<String, dynamic>.from(cityData);
                   storesMap.forEach((storeKey, storeData) {
                     if (storeData is Map && storeData.containsKey('name')) {
-                      final Map<String, dynamic> storeMap = Map<String, dynamic>.from(storeData);
+                      final Map<String, dynamic> storeMap =
+                          Map<String, dynamic>.from(storeData);
                       storeMap['city'] = cityName;
                       BobaStore store = BobaStore.fromJson(storeKey, storeMap);
                       storeList.add(store);
                     } else {
-                      print("Skipping key '$storeKey' in city '$cityName' as it's not a valid store record.");
+                      print(
+                          "Skipping key '$storeKey' in city '$cityName' as it's not a valid store record.");
                     }
                   });
-                  print("City '$cityName' processed with ${storesMap.length} entries.");
+                  print(
+                      "City '$cityName' processed with ${storesMap.length} entries.");
                 } else {
-                  print("Skipping city '$cityName' because its data is not a Map.");
+                  print(
+                      "Skipping city '$cityName' because its data is not a Map.");
                 }
               });
             } else {
@@ -155,7 +155,7 @@ class _StoresPageState extends State<StoresPage> {
               return const Center(child: Text("No stores found."));
             }
 
-            // Sort the stores so that favorites appear at the top, then by distance.
+            // Sort so that favorites are at the top, then by distance.
             storeList.sort((a, b) {
               bool aFav = favoriteStoreIds.contains(a.id);
               bool bFav = favoriteStoreIds.contains(b.id);
@@ -180,65 +180,49 @@ class _StoresPageState extends State<StoresPage> {
             List<BobaStore> displayStores = storeList.take(6).toList();
 
             return ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(8),
               itemCount: displayStores.length,
               itemBuilder: (context, index) {
                 final store = displayStores[index];
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  elevation: 3,
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  elevation: 2,
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(8),
+                    // Use a smaller leading icon.
                     leading: SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8.0),
-                        child: Builder(
-                          builder: (context) {
-                            // Use asset image if imageName is provided and not a URL.
-                            if (store.imageName.isNotEmpty && !store.imageName.startsWith('http')) {
-                              return Image.asset(
-                                'assets/${store.imageName}.png',
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              );
-                            } 
-                            // Use CachedNetworkImage for network images.
-                            else if (store.imageName.startsWith('http')) {
-                              return CachedNetworkImage(
-                                imageUrl: store.imageName,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                errorWidget: (context, url, error) => const Icon(Icons.error),
-                              );
-                            } 
-                            // Fallback to default asset image.
-                            else {
-                              return Image.asset(
-                                'assets/default_image.png',
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              );
-                            }
-                          },
-                        ),
+                      width: 60,
+                      height: 60,
+                      child: Icon(
+                        Icons.store,
+                        size: 60,
+                        color: widget.isDarkMode ? Colors.white : Colors.black,
                       ),
                     ),
+
                     title: Text(
                       store.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(store.address),
-                        Text("${store.city}, ${store.state}"),
-                        Text("Visits: ${store.visits}"),
+                        Text(
+                          store.address,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        Text(
+                          "${store.city}, ${store.state}",
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        Text(
+                          "Visits: ${store.visits}",
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ],
                     ),
                     trailing: IconButton(
@@ -252,18 +236,15 @@ class _StoresPageState extends State<StoresPage> {
                       ),
                       onPressed: () {
                         setState(() {
-                          // Toggle favorite status.
                           if (favoriteStoreIds.contains(store.id)) {
                             favoriteStoreIds.remove(store.id);
                           } else {
                             favoriteStoreIds.add(store.id);
                           }
-                          // After toggling, re-sort the list so favorites come to the top.
                         });
                       },
                     ),
                     onTap: () {
-                      // Navigate to the store details screen.
                       Navigator.push(
                         context,
                         MaterialPageRoute(
