@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:test/locations/boba_store.dart';
+import 'package:test/services/displayQRCode.dart';   // Your widget that displays the QR code image.
+import 'package:test/services/fetch_QR_code.dart';     // Contains the fetchQrCode function.
 
 class StoreDetailsScreen extends StatelessWidget {
   final BobaStore store;
@@ -60,22 +61,11 @@ class StoreDetailsScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-             QrImageView(
-  data: store.qrData,
-  version: QrVersions.auto,
-  size: 200.0,
-  // Use circular shapes for a modern style.
-  eyeStyle: QrEyeStyle(
-    eyeShape: QrEyeShape.circle,
-    color: isDark ? Colors.white : Colors.black,
-  ),
-  dataModuleStyle: QrDataModuleStyle(
-    dataModuleShape: QrDataModuleShape.circle,
-    color: isDark ? Colors.white : Colors.black,
-  ),
-  backgroundColor: isDark ? Colors.black : Colors.white,
-),
-
+              // Use our QrCodeDisplay widget to fetch and display the QR code.
+              // Here we pass store.qrData as the unique identifier. Adjust this if needed.
+              QrCodeDisplay(
+                qrCodeFuture: fetchQrCode(store.qrData),
+              ),
               const SizedBox(height: 24.0),
               Text(
                 "Distance: ${distanceMiles.toStringAsFixed(2)} mi",
