@@ -7,14 +7,19 @@ import 'package:test/locations/geolocator.dart';
 import 'package:test/widgets/circular_layout.dart'; // Use the updated circular layout
 
 class NearbyStoresWidget extends StatefulWidget {
-  const NearbyStoresWidget({super.key, required List<BobaStore> stores, required Position userPosition, required String userLocationText});
+  const NearbyStoresWidget(
+      {super.key,
+      required List<BobaStore> stores,
+      required Position userPosition,
+      required String userLocationText});
 
   @override
   _NearbyStoresWidgetState createState() => _NearbyStoresWidgetState();
 }
 
 class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
-  final String apiEndpoint = 'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json';//Realtime Database endpoint (with .json)
+  final String apiEndpoint =
+      'https://bopo-f6eeb-default-rtdb.firebaseio.com/stores.json'; //Realtime Database endpoint (with .json)
   List<BobaStore> stores = [];
   bool isLoading = true;
   Position? userPosition;
@@ -55,7 +60,7 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
                   storeData['city'] = cityName;
                   // You can also perform additional validations here if needed.
                   fetchedStores.add(BobaStore.fromJson(storeKey, storeData));
-                 // print("Added store '$storeKey' in '$cityName' with " "imagename='${storeData['imagename']}', name='${storeData['name']}'");
+                  // print("Added store '$storeKey' in '$cityName' with " "imagename='${storeData['imagename']}', name='${storeData['name']}'");
                 }
               });
               //print("City '$cityName' processed.");

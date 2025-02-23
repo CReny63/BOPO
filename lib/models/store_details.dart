@@ -46,9 +46,6 @@ class StoreDetailsScreen extends StatelessWidget {
     double distanceKm = distance / 1000;
     double distanceMiles = distanceKm * 0.621371;
 
-    // Determine the current theme's brightness.
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(store.name),
@@ -61,10 +58,13 @@ class StoreDetailsScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Use our QrCodeDisplay widget to fetch and display the QR code.
-              // Here we pass store.qrData as the unique identifier. Adjust this if needed.
-              QrCodeDisplay(
-                qrCodeFuture: fetchQrCode(store.qrData),
+              // Wrapping QrCodeDisplay in a SizedBox to make it larger.
+              SizedBox(
+                width: 200,
+                height: 200,
+                child: QrCodeDisplay(
+                  qrCodeFuture: fetchQrCode(store.qrData),
+                ),
               ),
               const SizedBox(height: 24.0),
               Text(

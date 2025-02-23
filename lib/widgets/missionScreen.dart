@@ -93,7 +93,9 @@ class MissionsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "${mission.current} / ${mission.goal} scanned",
+                    mission.current == mission.goal
+                        ? "Unlocked!"
+                        : "${mission.current} / ${mission.goal} scanned",
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
