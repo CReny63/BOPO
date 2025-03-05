@@ -35,7 +35,7 @@ class NotificationsPage extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.people_alt_outlined, size: 21.0),
               tooltip: 'QR Code',
-              onPressed: () => _showQRCodeModal(context),
+              onPressed: () {},
             ),
             IconButton(
               icon: const Icon(Icons.home_outlined, size: 21.0),
