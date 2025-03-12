@@ -7,8 +7,8 @@ class SplashScreen extends StatefulWidget {
   SplashScreenState createState() => SplashScreenState();
 }
 
-class SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  // Controller for the speck's fade animation
+class SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _speckController;
   late final Animation<double> _speckOpacity;
 
@@ -16,21 +16,20 @@ class SplashScreenState extends State<SplashScreen> with SingleTickerProviderSta
   void initState() {
     super.initState();
 
-    // Fade the speck in and out
+    // Set up the speck's fade animation.
     _speckController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),  // 3 second fade
-    )..repeat(reverse: true); // Fades in and out continuously
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
 
-    // Map the controller's 0.0 -> 1.0 to 0.3 -> 1.0 opacity
     _speckOpacity = Tween<double>(begin: 0.3, end: 1.0).animate(_speckController);
 
-    // Navigate after 3 seconds
-    Future.delayed(const Duration(seconds: 3), _navigateToUserAdmin);
+    // Wait for 3 seconds before navigating to the login page.
+    Future.delayed(const Duration(seconds: 3), _navigateToLogin);
   }
 
-  void _navigateToUserAdmin() {
-    Navigator.pushReplacementNamed(context, '/user_admin');
+  void _navigateToLogin() {
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
@@ -42,20 +41,19 @@ class SplashScreenState extends State<SplashScreen> with SingleTickerProviderSta
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Simple gradient background
+      // Simple gradient background.
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFFF1ECE9), // Light warm gray
-              Color(0xFFFFFFFF), // White
+              Color(0xFFF1ECE9), // Light warm gray.
+              Color(0xFFFFFFFF), // White.
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: Center(
-          // Static column layout (no fade on text)
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -68,7 +66,7 @@ class SplashScreenState extends State<SplashScreen> with SingleTickerProviderSta
                 ),
               ),
               const SizedBox(height: 20),
-              // Boba ball with a fading speck
+              // Boba ball with a fading speck.
               SpeckBobaBall(speckOpacity: _speckOpacity),
             ],
           ),
@@ -85,22 +83,22 @@ class SpeckBobaBall extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The ball is static; the speck is the only animated part.
+    // The ball is static; the speck is the animated part.
     return SizedBox(
       width: 50,
       height: 50,
       child: Stack(
         children: [
-          // Brown boba ball
+          // Brown boba ball.
           Container(
             width: 50,
             height: 50,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF4E342E), // Dark brown
+              color: Color(0xFF4E342E), // Dark brown.
             ),
           ),
-          // Fading speck in top-right corner
+          // Fading speck in the top-right corner.
           Positioned(
             top: 8,
             right: 8,

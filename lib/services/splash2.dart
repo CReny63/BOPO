@@ -60,7 +60,7 @@ class Splash2State extends State<Splash2> with SingleTickerProviderStateMixin {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                "Logging in...",
+                "BOPO",
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,

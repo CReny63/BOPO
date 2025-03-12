@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -39,6 +40,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   // Instance variables for location and stores.
   Position? _lastKnownPosition;
   List<BobaStore> sortedStores = [];
+  BobaStore? selectedStore; // This is our store object.
 
   StreamSubscription<Position>? _positionStream;
 
@@ -69,12 +71,18 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         );
         setState(() {
           sortedStores = fetchedStores;
+          // Optionally set a selected store (e.g. the closest one).
+          if (sortedStores.isNotEmpty) {
+            selectedStore = sortedStores.first;
+          }
         });
         // Debug print to verify realtime data:
-        print("Realtime fetched stores:");
-        for (var store in sortedStores) {
-          print(
-              "Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
+        if (kDebugMode) {
+          print("Realtime fetched stores:");
+          for (var store in sortedStores) {
+            print(
+                "Store: name=${store.name}, imageName=${store.imageName}, city=${store.city}");
+          }
         }
       }
     } catch (e) {
@@ -88,7 +96,6 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   Future<void> _sortStoresByDistance() async {
     try {
       Position userPosition = await _geoService.determinePosition();
-      // Update the position and city.
       setState(() {
         _lastKnownPosition = userPosition;
       });
@@ -131,21 +138,21 @@ class HomeWithProgressState extends State<HomeWithProgress> {
       return distance <= maxDistance;
     }).toList();
 
+    // Update selectedStore if available.
+    if (sortedStores.isNotEmpty) {
+      selectedStore = sortedStores.first;
+    }
+
     setState(() {});
   }
 
   /// Refresh callback for pull-to-refresh.
   Future<void> _handleRefresh() async {
-    // Clear the current state to trigger the loading indicator.
     setState(() {
       _lastKnownPosition = null;
       sortedStores = [];
     });
-
-    // Re-run the full logic that determines position, fetches, and sorts stores.
     await _sortStoresByDistance();
-
-    // Optional delay so the refresh animation is visible.
     await Future.delayed(const Duration(milliseconds: 1000));
   }
 
@@ -160,10 +167,9 @@ class HomeWithProgressState extends State<HomeWithProgress> {
 
   @override
   Widget build(BuildContext context) {
-    // If no valid position, show a loading indicator.
     if (_lastKnownPosition == null) {
       return WillPopScope(
-        onWillPop: () async => false, // Disable back button
+        onWillPop: () async => false,
         child: Scaffold(
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(75),
@@ -178,32 +184,29 @@ class HomeWithProgressState extends State<HomeWithProgress> {
     String currentDate = getCurrentDate();
 
     return WillPopScope(
-      onWillPop: () async => false, // Disable back button on this screen
+      onWillPop: () async => false,
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
           child: const AppBarContent(),
         ),
-        // Wrap scrollable content with a custom refresh indicator.
         body: CustomRefreshIndicator(
           onRefresh: _handleRefresh,
           builder: (BuildContext context, Widget child, IndicatorController controller) {
             return Stack(
               alignment: Alignment.topCenter,
               children: [
-                // Animated capybara icon.
                 Transform.translate(
                   offset: Offset(0, controller.value * 100 - 50),
                   child: Opacity(
                     opacity: min(controller.value, 1.0),
                     child: Image.asset(
-                      'assets/capy_boba.png', // Ensure this asset exists.
+                      'assets/capy_boba.png',
                       width: 50,
                       height: 50,
                     ),
                   ),
                 ),
-                // Translate the child down as the pull occurs.
                 Transform.translate(
                   offset: Offset(0, controller.value * 100),
                   child: child,
@@ -235,7 +238,6 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Display the realtime-fetched list via NearbyStoresWidget.
                   SizedBox(
                     height: 400,
                     child: NearbyStoresWidget(
@@ -256,12 +258,25 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MissionsScreen(scannedStoreIds: scannedStoreIds),
-              ),
-            );
+            if (selectedStore != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MissionsScreen(
+                    scannedStoreIds: scannedStoreIds,
+                    userId: FirebaseAuth.instance.currentUser?.uid ?? 'defaultUserId',
+                    storeId: selectedStore!.id,
+                    storeLatitude: selectedStore!.latitude,
+                    storeLongitude: selectedStore!.longitude,
+                    storeCity: selectedStore!.city,
+                  ),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No store selected.')),
+              );
+            }
           },
           backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
           child: const Icon(Icons.assignment),

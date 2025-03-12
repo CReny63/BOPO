@@ -101,7 +101,7 @@ return SizedBox(
             MaterialPageRoute(
               builder: (_) => StoreDetailsScreen(
                 store: store,
-                userPosition: userPosition,
+                userPosition: userPosition, userId: '',
               ),
             ),
           );

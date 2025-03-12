@@ -86,8 +86,8 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sign In Successful!')),
       );
-     Navigator.pushReplacementNamed(context, '/main');
-
+      // Navigate to splash2 screen first, which will then navigate to main.
+      Navigator.pushReplacementNamed(context, '/splash2');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid username or password.')),
@@ -116,7 +116,6 @@ class _LoginPageState extends State<LoginPage> {
             content: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Removed the camera widget for a cleaner sign-up dialog.
                   TextField(
                     controller: signUpUsernameController,
                     decoration: const InputDecoration(
@@ -197,7 +196,8 @@ class _LoginPageState extends State<LoginPage> {
                     const SnackBar(content: Text('Sign Up Successful!')),
                   );
 
-                    Navigator.pushReplacementNamed(context, '/main');
+                  // Navigate to splash2 screen after sign up.
+                  Navigator.pushReplacementNamed(context, '/splash2');
                 },
                 child: const Text('Sign Up'),
               ),
@@ -338,7 +338,8 @@ class _LoginPageState extends State<LoginPage> {
                         UserCredential? userCredential = await signInWithGoogle();
                         Navigator.of(context).pop();
                         if (userCredential != null) {
-                            Navigator.pushReplacementNamed(context, '/main');
+                          // Navigate to splash2 screen after successful Google sign-in.
+                          Navigator.pushReplacementNamed(context, '/splash2');
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(

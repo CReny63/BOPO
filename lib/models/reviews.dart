@@ -250,7 +250,7 @@ class _StoresPageState extends State<StoresPage> {
                         MaterialPageRoute(
                           builder: (_) => StoreDetailsScreen(
                             store: store,
-                            userPosition: userPosition!,
+                            userPosition: userPosition!, userId: '',
                           ),
                         ),
                       );
