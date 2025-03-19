@@ -115,6 +115,7 @@ flutter:
     - assets/sharetealogo.png
     - assets/BOPO.png
     - assets/capy_boba.png
+    - assets/google_logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:test/services/theme_provider.dart'; // Your ThemeProvider
 
 class Mission {
   final String title;
@@ -35,7 +36,6 @@ class SegmentedProgressIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Total width available.
         double totalWidth = constraints.maxWidth;
         double totalSpacing = spacing * (goal - 1);
         double segmentWidth = (totalWidth - totalSpacing) / goal;
@@ -68,6 +68,8 @@ class MissionsScreen extends StatefulWidget {
   final double storeLatitude;
   final double storeLongitude;
   final String storeCity;
+  final Set<String> scannedStoreIds; // if needed
+  final ThemeProvider themeProvider;
 
   const MissionsScreen({
     Key? key,
@@ -76,7 +78,8 @@ class MissionsScreen extends StatefulWidget {
     required this.storeLatitude,
     required this.storeLongitude,
     required this.storeCity,
-    required Set<String> scannedStoreIds,
+    required this.scannedStoreIds,
+    required this.themeProvider,
   }) : super(key: key);
 
   @override
@@ -92,7 +95,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
   @override
   void initState() {
     super.initState();
-    // Check location periodically (every 5 seconds)
+    // Check location every 5 seconds.
     _locationCheckTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _checkLocationAndRegisterVisit();
     });
@@ -105,7 +108,6 @@ class _MissionsScreenState extends State<MissionsScreen> {
     super.dispose();
   }
 
-  // Check the user's location relative to the store.
   void _checkLocationAndRegisterVisit() async {
     Position currentPosition;
     try {
@@ -115,16 +117,13 @@ class _MissionsScreenState extends State<MissionsScreen> {
       print("Error obtaining position: $e");
       return;
     }
-
     double distance = Geolocator.distanceBetween(
       currentPosition.latitude,
       currentPosition.longitude,
       widget.storeLatitude,
       widget.storeLongitude,
     );
-
     if (distance <= thresholdMeters && !_visitRegistered) {
-      // If in range and no visit registered, start a 30-second timer.
       _visitTimer ??= Timer(const Duration(seconds: 30), () async {
         Position updatedPosition;
         try {
@@ -142,7 +141,6 @@ class _MissionsScreenState extends State<MissionsScreen> {
           widget.storeLongitude,
         );
         if (updatedDistance <= thresholdMeters) {
-          // Still in range after 30 seconds: register the visit.
           await _registerVisit(updatedPosition);
           setState(() {
             _visitRegistered = true;
@@ -151,7 +149,6 @@ class _MissionsScreenState extends State<MissionsScreen> {
         _visitTimer = null;
       });
     } else {
-      // If user moves out of range, cancel any pending timer.
       if (_visitTimer != null) {
         _visitTimer!.cancel();
         _visitTimer = null;
@@ -159,14 +156,12 @@ class _MissionsScreenState extends State<MissionsScreen> {
     }
   }
 
-  // Register the visit in Firebase.
   Future<void> _registerVisit(Position position) async {
     final DatabaseReference visitsRef = FirebaseDatabase.instance
         .ref()
         .child('userVisits')
         .child(widget.userId)
         .child(widget.storeId);
-
     final DataSnapshot snapshot = await visitsRef.get();
     if (!snapshot.exists) {
       await visitsRef.set({
@@ -174,8 +169,6 @@ class _MissionsScreenState extends State<MissionsScreen> {
         'latitude': position.latitude,
         'longitude': position.longitude,
       });
-
-      // Optionally update the store's overall visit count.
       final DatabaseReference storeRef = FirebaseDatabase.instance
           .ref()
           .child('stores')
@@ -194,42 +187,72 @@ class _MissionsScreenState extends State<MissionsScreen> {
     }
   }
 
-  /// Build mission objects based on the unique visit count.
-  /// Mission 1: Visit 3 stores, Mission 2: Additional 2 visits (total 5), Mission 3: Additional 5 visits (total 10).
+  /// Build five mission objects with cumulative thresholds.
   List<Mission> buildMissions(int uniqueCount) {
-    int m1Progress = uniqueCount.clamp(0, 3);
-    int m2Progress = uniqueCount >= 3 ? (uniqueCount - 3).clamp(0, 2) : 0;
-    int m3Progress = uniqueCount >= 5 ? (uniqueCount - 5).clamp(0, 5) : 0;
+    Mission m1 = Mission(
+      title: "Visit 3 Boba Stores",
+      description: "Visit three different boba stores to unlock your reward!",
+      current: uniqueCount.clamp(0, 3),
+      goal: 3,
+    );
+    Mission m2 = Mission(
+      title: "Visit 5 Boba Stores",
+      description: "Visit five different boba stores to unlock your bonus!",
+      current: uniqueCount.clamp(0, 5),
+      goal: 5,
+    );
+    Mission m3 = Mission(
+      title: "Visit 10 Boba Stores",
+      description: "Visit ten different boba stores for a major reward!",
+      current: uniqueCount.clamp(0, 10),
+      goal: 10,
+    );
+    Mission m4 = Mission(
+      title: "Visit 15 Boba Stores",
+      description: "Visit fifteen boba stores to unlock an even bigger bonus!",
+      current: uniqueCount.clamp(0, 15),
+      goal: 15,
+    );
+    Mission m5 = Mission(
+      title: "Visit 20 Boba Stores",
+      description: "Visit twenty boba stores for the ultimate reward!",
+      current: uniqueCount.clamp(0, 20),
+      goal: 20,
+    );
+    return [m1, m2, m3, m4, m5];
+  }
 
-    return [
-      Mission(
-        title: "Visit 3 Boba Stores",
-        description: "Visit three different boba stores to unlock your reward!",
-        current: m1Progress,
-        goal: 3,
-      ),
-      Mission(
-        title: "Visit 5 Boba Stores",
-        description: "Visit five different boba stores to unlock your bonus!",
-        current: m2Progress,
-        goal: 5,
-      ),
-      Mission(
-        title: "Visit 10 Boba Stores",
-        description: "Visit ten different boba stores for a major reward!",
-        current: m3Progress,
-        goal: 10,
-      ),
-    ];
+  /// Determines if a mission is unlocked.
+  bool isMissionUnlocked(int missionIndex, int uniqueCount) {
+    if (missionIndex == 0) return true;
+    if (missionIndex == 1) return uniqueCount >= 3;
+    if (missionIndex == 2) return uniqueCount >= 5;
+    if (missionIndex == 3) return uniqueCount >= 10;
+    if (missionIndex == 4) return uniqueCount >= 15;
+    return false;
   }
 
   /// Build a mission card widget with a curved rectangle.
-  /// If locked is true, overlay a semi-transparent lock icon.
+  /// If locked, overlay a semi-transparent lock icon.
   Widget buildMissionCard(Mission mission, bool unlocked) {
+    // Use the current theme for styling.
+    TextStyle titleStyle = TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.bold,
+      color: unlocked ? Theme.of(context).textTheme.titleLarge?.color ?? Colors.black : Colors.grey,
+    );
+    TextStyle descStyle = TextStyle(
+      fontSize: 18,
+      color: unlocked ? Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87 : Colors.grey,
+    );
+    TextStyle progressStyle = TextStyle(
+      fontSize: 18,
+      color: unlocked ? Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black : Colors.grey,
+    );
     Widget cardContent = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(unlocked ? 1.0 : 0.5),
+        color: unlocked ? Theme.of(context).cardColor : Theme.of(context).cardColor.withOpacity(0.5),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -243,25 +266,10 @@ class _MissionsScreenState extends State<MissionsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            mission.title,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: unlocked ? Colors.black : Colors.grey,
-            ),
-          ),
+          Text(mission.title, style: titleStyle),
           const SizedBox(height: 12),
-          Text(
-            mission.description,
-            style: TextStyle(
-              fontSize: 18,
-              color: unlocked ? Colors.black87 : Colors.grey,
-            ),
-            textAlign: TextAlign.center,
-          ),
+          Text(mission.description, style: descStyle, textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          // Ensure progress bar fits relative to card width.
           LayoutBuilder(
             builder: (context, constraints) {
               return SegmentedProgressIndicator(
@@ -275,15 +283,11 @@ class _MissionsScreenState extends State<MissionsScreen> {
             mission.current == mission.goal
                 ? "Unlocked!"
                 : "${mission.current} / ${mission.goal} completed",
-            style: TextStyle(
-              fontSize: 18,
-              color: unlocked ? Colors.black : Colors.grey,
-            ),
+            style: progressStyle,
           ),
         ],
       ),
     );
-
     if (!unlocked) {
       return Stack(
         children: [
@@ -308,12 +312,10 @@ class _MissionsScreenState extends State<MissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to the user's visit records from Firebase.
     final DatabaseReference userVisitsRef = FirebaseDatabase.instance
         .ref()
         .child("userVisits")
         .child(widget.userId);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Missions"),
@@ -328,51 +330,31 @@ class _MissionsScreenState extends State<MissionsScreen> {
                 snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
             uniqueCount = visitsMap.keys.length;
           }
-
           List<Mission> missions = buildMissions(uniqueCount);
-          // Determine lock state for each mission:
-          // Mission 1 is always unlocked.
-          bool m1Unlocked = true;
-          // Mission 2 unlocked if mission1 complete (uniqueCount >= 3).
-          bool m2Unlocked = uniqueCount >= 3;
-          // Mission 3 unlocked if mission2 complete (uniqueCount >= 5).
-          bool m3Unlocked = uniqueCount >= 5;
-
-          // Build mission cards.
-          Widget card1 = buildMissionCard(missions[0], m1Unlocked);
-          Widget card2 = buildMissionCard(missions[1], m2Unlocked);
-          Widget card3 = buildMissionCard(missions[2], m3Unlocked);
-
-          // Stack the cards so they overlap like pages in a book.
+          List<Widget> cards = [];
+          for (int i = 0; i < missions.length; i++) {
+            bool unlocked = isMissionUnlocked(i, uniqueCount);
+            cards.add(buildMissionCard(missions[i], unlocked));
+            if (i < missions.length - 1) {
+              cards.add(const SizedBox(height: 10));
+            }
+          }
+          // Stack the cards like pages in a book.
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: SizedBox(
-                height: 350, // Adjust height as needed.
+                height: 400,
                 child: Stack(
                   alignment: Alignment.topCenter,
                   children: [
-                    // Bottom card (mission 3) - offset further down.
-                    Positioned(
-                      top: 80,
-                      left: 0,
-                      right: 0,
-                      child: card3,
-                    ),
-                    // Middle card (mission 2) - offset a bit.
-                    Positioned(
-                      top: 40,
-                      left: 0,
-                      right: 0,
-                      child: card2,
-                    ),
-                    // Top card (mission 1) - active mission.
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: card1,
-                    ),
+                    for (int i = missions.length - 1; i >= 0; i--)
+                      Positioned(
+                        top: i * 20.0,
+                        left: 0,
+                        right: 0,
+                        child: cards[i * 2],
+                      ),
                   ],
                 ),
               ),

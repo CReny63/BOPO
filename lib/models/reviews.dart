@@ -3,9 +3,10 @@ import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:test/locations/boba_store.dart'; // Your BobaStore class
-import 'package:test/models/store_details.dart'; // Contains your StoreDetailsScreen
+import 'package:test/locations/boba_store.dart';
+import 'package:test/models/store_details.dart';
 import 'package:test/widgets/app_bar_content.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class StoresPage extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -22,12 +23,9 @@ class StoresPage extends StatefulWidget {
 }
 
 class _StoresPageState extends State<StoresPage> {
-  // Reference to the "stores" node in Firebase Realtime Database.
   final DatabaseReference _storesRef =
       FirebaseDatabase.instance.ref().child('stores');
   Position? userPosition;
-
-  // Maintain a set of favorite store IDs.
   final Set<String> favoriteStoreIds = {};
 
   @override
@@ -36,12 +34,11 @@ class _StoresPageState extends State<StoresPage> {
     _getUserLocation();
   }
 
-  /// Fetches the current user position.
+  /// Fetch the current user position.
   Future<void> _getUserLocation() async {
     try {
       Position pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
-      print("User position: $pos");
       setState(() {
         userPosition = pos;
       });
@@ -79,8 +76,8 @@ class _StoresPageState extends State<StoresPage> {
       ),
       body: CustomRefreshIndicator(
         onRefresh: _handleRefresh,
-        builder: (BuildContext context, Widget child,
-            IndicatorController controller) {
+        builder:
+            (BuildContext context, Widget child, IndicatorController controller) {
           return Stack(
             alignment: Alignment.topCenter,
             children: [
@@ -117,7 +114,7 @@ class _StoresPageState extends State<StoresPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            // Parse the Firebase data.
+            // Parse Firebase data.
             final dynamic decoded = snapshot.data!.snapshot.value;
             List<BobaStore> storeList = [];
             if (decoded is Map) {
@@ -134,23 +131,12 @@ class _StoresPageState extends State<StoresPage> {
                       storeMap['city'] = cityName;
                       BobaStore store = BobaStore.fromJson(storeKey, storeMap);
                       storeList.add(store);
-                    } else {
-                      print(
-                          "Skipping key '$storeKey' in city '$cityName' as it's not a valid store record.");
                     }
                   });
-                  print(
-                      "City '$cityName' processed with ${storesMap.length} entries.");
-                } else {
-                  print(
-                      "Skipping city '$cityName' because its data is not a Map.");
                 }
               });
-            } else {
-              print("Decoded data is not a Map.");
             }
 
-            print("Total stores parsed: ${storeList.length}");
             if (storeList.isEmpty) {
               return const Center(child: Text("No stores found."));
             }
@@ -184,73 +170,31 @@ class _StoresPageState extends State<StoresPage> {
               itemCount: displayStores.length,
               itemBuilder: (context, index) {
                 final store = displayStores[index];
-                return Card(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  elevation: 2,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(8),
-                    // Use a smaller leading icon.
-                    leading: SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: Icon(
-                        Icons.store,
-                        size: 60,
-                        color: widget.isDarkMode ? Colors.white : Colors.black,
-                      ),
-                    ),
-
-                    title: Text(
-                      store.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          store.address,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          "${store.city}, ${store.state}",
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          "Visits: ${store.visits}",
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(
-                        favoriteStoreIds.contains(store.id)
-                            ? Icons.star
-                            : Icons.star_border,
-                        color: favoriteStoreIds.contains(store.id)
-                            ? Colors.amber
-                            : null,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          if (favoriteStoreIds.contains(store.id)) {
-                            favoriteStoreIds.remove(store.id);
-                          } else {
-                            favoriteStoreIds.add(store.id);
-                          }
-                        });
-                      },
-                    ),
+                return AnimatedStoreCard(
+                  index: index,
+                  child: StoreCard(
+                    store: store,
+                    isFavorite: favoriteStoreIds.contains(store.id),
+                    isDarkMode: widget.isDarkMode,
+                    userPosition: userPosition!,
+                    onFavoriteToggle: () {
+                      setState(() {
+                        if (favoriteStoreIds.contains(store.id)) {
+                          favoriteStoreIds.remove(store.id);
+                        } else {
+                          favoriteStoreIds.add(store.id);
+                        }
+                      });
+                    },
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => StoreDetailsScreen(
                             store: store,
-                            userPosition: userPosition!, userId: '',
+                            userPosition: userPosition!,
+                            userId: FirebaseAuth.instance.currentUser?.uid ??
+                                'defaultUserId',
                           ),
                         ),
                       );
@@ -294,6 +238,157 @@ class _StoresPageState extends State<StoresPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A separate widget for displaying each store card.
+class StoreCard extends StatelessWidget {
+  final BobaStore store;
+  final bool isFavorite;
+  final bool isDarkMode;
+  final Position userPosition;
+  final VoidCallback onFavoriteToggle;
+  final VoidCallback onTap;
+
+  const StoreCard({
+    Key? key,
+    required this.store,
+    required this.isFavorite,
+    required this.isDarkMode,
+    required this.userPosition,
+    required this.onFavoriteToggle,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Wrap the store image in a Hero for a smooth transition.
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 2,
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(8),
+        leading: Hero(
+          tag: 'storeImage-${store.id}',
+          child: SizedBox(
+            width: 60,
+            height: 60,
+            child: Icon(
+              Icons.store,
+              size: 60,
+              color: isDarkMode ? Colors.white : Colors.black,
+            ),
+          ),
+        ),
+        title: Text(
+          store.name,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              store.address,
+              style: const TextStyle(fontSize: 12),
+            ),
+            Text(
+              "${store.city}, ${store.state}",
+              style: const TextStyle(fontSize: 12),
+            ),
+            Text(
+              "Global Visits: ${store.visits}",
+              style: const TextStyle(fontSize: 12),
+            ),
+            FutureBuilder<DataSnapshot>(
+              future: FirebaseDatabase.instance
+                  .ref()
+                  .child('userStoreVisits')
+                  .child(FirebaseAuth.instance.currentUser?.uid ?? '')
+                  .child(store.id)
+                  .get(),
+              builder: (context, snapshot) {
+                int userVisits = 0;
+                if (snapshot.hasData && snapshot.data!.value != null) {
+                  userVisits =
+                      int.tryParse(snapshot.data!.value.toString()) ?? 0;
+                }
+                return Text(
+                  "Your Visits: $userVisits",
+                  style: const TextStyle(fontSize: 12, color: Colors.blue),
+                );
+              },
+            ),
+          ],
+        ),
+        trailing: IconButton(
+          icon: Icon(
+            isFavorite ? Icons.star : Icons.star_border,
+            color: isFavorite ? Colors.amber : null,
+          ),
+          onPressed: onFavoriteToggle,
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// A widget that adds a fade and slide animation to its child.
+/// The delay is staggered based on the provided index.
+class AnimatedStoreCard extends StatefulWidget {
+  final Widget child;
+  final int index;
+
+  const AnimatedStoreCard({
+    Key? key,
+    required this.child,
+    required this.index,
+  }) : super(key: key);
+
+  @override
+  _AnimatedStoreCardState createState() => _AnimatedStoreCardState();
+}
+
+class _AnimatedStoreCardState extends State<AnimatedStoreCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    Future.delayed(Duration(milliseconds: widget.index * 100), () {
+      if (mounted) {
+        _controller.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: SlideTransition(
+        position:
+            Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+                .animate(_animation),
+        child: widget.child,
       ),
     );
   }

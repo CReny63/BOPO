@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,7 +7,7 @@ import 'package:test/locations/boba_store.dart';
 
 class StoreDetailsScreen extends StatefulWidget {
   final BobaStore store;
-  final Position userPosition;
+  final Position userPosition; // initial user position
   final String userId; // Unique identifier for the current user
 
   const StoreDetailsScreen({
@@ -24,84 +25,145 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   bool visitRecorded = false;
   final double thresholdMeters = 3.05; // Approximately 10 feet
 
+  Timer? _locationMonitorTimer;
+  Timer? _countdownTimer;
+  int _timeRemaining = 30;
+  bool _timerActive = false;
+
   @override
   void initState() {
     super.initState();
-    _checkAndRecordVisit();
+    // Start monitoring the user's location every second.
+    _locationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      _checkAndStartCountdown();
+    });
   }
 
-  Future<void> _checkAndRecordVisit() async {
-    // Basic spoofing prevention: check that location accuracy is good
-    // and that the timestamp is recent. (For full spoofing prevention, consider
-    // additional server-side verification.)
-    if (widget.userPosition.accuracy > 20.0) {
-      print("Location accuracy too low: ${widget.userPosition.accuracy}");
-      return;
-    }
-    if (DateTime.now().difference(widget.userPosition.timestamp!) > Duration(minutes: 5)) {
-      print("Location data is stale.");
-      return;
-    }
+  @override
+  void dispose() {
+    _locationMonitorTimer?.cancel();
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
 
+  Future<void> _checkAndStartCountdown() async {
+    Position currentPosition;
+    try {
+      currentPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+    } catch (e) {
+      print("Error obtaining position: $e");
+      return;
+    }
+    // Calculate the distance from the current position to the store.
     double distance = Geolocator.distanceBetween(
-      widget.userPosition.latitude,
-      widget.userPosition.longitude,
+      currentPosition.latitude,
+      currentPosition.longitude,
       widget.store.latitude,
       widget.store.longitude,
     );
-    if (distance <= thresholdMeters && !visitRecorded) {
-      await _recordVisit();
-      setState(() {
-        visitRecorded = true;
-      });
+    // If within range and no countdown active and visit not yet recorded, start countdown.
+    if (distance <= thresholdMeters && !_timerActive && !visitRecorded) {
+      _startCountdown();
+    } else if (distance > thresholdMeters && _timerActive) {
+      // Cancel countdown if user moves out of range.
+      _cancelCountdown();
     }
   }
 
-Future<void> _recordVisit() async {
-  // Save the visit under a dedicated node using the store ID and user ID.
-  final DatabaseReference visitsRef = FirebaseDatabase.instance
-      .ref()
-      .child('visits')
-      .child(widget.store.id);
-  final DataSnapshot snapshot = await visitsRef.child(widget.userId).get();
-
-  if (!snapshot.exists) {
-    await visitsRef.child(widget.userId).set({
-      'timestamp': DateTime.now().toIso8601String(),
-      'latitude': widget.userPosition.latitude,
-      'longitude': widget.userPosition.longitude,
+  void _startCountdown() {
+    setState(() {
+      _timerActive = true;
+      _timeRemaining = 30;
     });
-
-    // Update the store's total visit count using a transaction.
-    final DatabaseReference storeRef = FirebaseDatabase.instance
-        .ref()
-        .child('stores')
-        .child(widget.store.city)
-        .child(widget.store.id);
-
-    await storeRef.runTransaction((mutableData) async {
-      if (mutableData.value != null) {
-        Map data = Map.from(mutableData.value as Map);
-        int currentVisits = data['visits'] != null ? data['visits'] as int : 0;
-        data['visits'] = currentVisits + 1;
-        mutableData.value = data;
+    _countdownTimer = Timer.periodic(Duration(seconds: 1), (timer) async {
+      setState(() {
+        _timeRemaining--;
+      });
+      if (_timeRemaining <= 0) {
+        timer.cancel();
+        // Once countdown reaches zero, verify the user is still in range.
+        Position updatedPosition;
+        try {
+          updatedPosition = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high);
+        } catch (e) {
+          print("Error obtaining updated position: $e");
+          _cancelCountdown();
+          return;
+        }
+        double updatedDistance = Geolocator.distanceBetween(
+          updatedPosition.latitude,
+          updatedPosition.longitude,
+          widget.store.latitude,
+          widget.store.longitude,
+        );
+        if (updatedDistance <= thresholdMeters) {
+          // User stayed in range for 30 seconds: record the visit.
+          await _recordVisit(updatedPosition);
+          setState(() {
+            visitRecorded = true;
+            _timerActive = false;
+          });
+        } else {
+          // User moved away before 30 seconds ended.
+          _cancelCountdown();
+        }
       }
-      return Transaction.success(mutableData);
-    } as TransactionHandler);
-
-    // Record the unique visit for missions.
-    await FirebaseDatabase.instance
-        .ref()
-        .child("userVisits")
-        .child(widget.userId)
-        .child(widget.store.id)
-        .set(true);
+    });
   }
-}
 
+  void _cancelCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    setState(() {
+      _timerActive = false;
+      _timeRemaining = 30;
+    });
+  }
 
+  Future<void> _recordVisit(Position position) async {
+    // Save the visit under a dedicated node using the store ID and user ID.
+    final DatabaseReference visitsRef = FirebaseDatabase.instance
+        .ref()
+        .child('visits')
+        .child(widget.store.id);
+    final DataSnapshot snapshot = await visitsRef.child(widget.userId).get();
 
+    if (!snapshot.exists) {
+      await visitsRef.child(widget.userId).set({
+        'timestamp': DateTime.now().toIso8601String(),
+        'latitude': widget.userPosition.latitude,
+        'longitude': widget.userPosition.longitude,
+      });
 
+      // Update the store's total visit count using a transaction.
+      final DatabaseReference storeRef = FirebaseDatabase.instance
+          .ref()
+          .child('stores')
+          .child(widget.store.city)
+          .child(widget.store.id);
+
+      await storeRef.runTransaction((mutableData) async {
+        if (mutableData.value != null) {
+          Map data = Map.from(mutableData.value as Map);
+          int currentVisits = data['visits'] != null ? data['visits'] as int : 0;
+          data['visits'] = currentVisits + 1;
+          mutableData.value = data;
+        }
+        return Transaction.success(mutableData);
+      } as TransactionHandler);
+
+      // Record the unique visit for missions.
+      await FirebaseDatabase.instance
+          .ref()
+          .child("userVisits")
+          .child(widget.userId)
+          .child(widget.store.id)
+          .set(true);
+      print("Visit registered for store ${widget.store.id}");
+    }
+  }
 
   Future<void> _openMaps(BuildContext context) async {
     final Uri googleMapsUri = Uri(
@@ -145,7 +207,6 @@ Future<void> _recordVisit() async {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Replace the QR code display with a store icon or other visual.
               Icon(
                 Icons.store,
                 size: 100,
@@ -170,15 +231,19 @@ Future<void> _recordVisit() async {
                 ),
               ),
               const SizedBox(height: 24.0),
-              // Inform the user whether a visit was recorded.
               if (visitRecorded)
                 const Text(
                   "Visit recorded!",
                   style: TextStyle(fontSize: 16, color: Colors.green),
                 )
+              else if (_timerActive)
+                Text(
+                  "Hold for $_timeRemaining sec to record visit",
+                  style: const TextStyle(fontSize: 16, color: Colors.orange),
+                )
               else
                 const Text(
-                  "You are not close enough to record a visit.",
+                  "Move closer to record visit",
                   style: TextStyle(fontSize: 16, color: Colors.red),
                 ),
             ],

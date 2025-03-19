@@ -6,7 +6,6 @@ import 'package:test/locations/boba_store.dart';
 import 'package:test/models/store_details.dart';
 import 'package:test/services/theme_provider.dart';
 
-
 class CircularLayout extends StatelessWidget {
   final double radius;
   final List<BobaStore> bobaStores;
@@ -23,9 +22,8 @@ class CircularLayout extends StatelessWidget {
     required this.userLocationText,
   }) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    // First, sort the incoming list by distance from the user.
+  // Helper method to sort stores by distance and return the closest 8.
+  List<BobaStore> _getSortedStores() {
     List<BobaStore> sortedList = List<BobaStore>.from(bobaStores);
     sortedList.sort((a, b) {
       double distanceA = Geolocator.distanceBetween(
@@ -42,26 +40,29 @@ class CircularLayout extends StatelessWidget {
       );
       return distanceA.compareTo(distanceB);
     });
+    return sortedList.sublist(0, min(8, sortedList.length));
+  }
 
-    // Now select the 8 closest stores.
-    final int numStoresToShow = min(8, sortedList.length);
-    final List<BobaStore> displayStores = sortedList.sublist(0, numStoresToShow);
-
+  @override
+  Widget build(BuildContext context) {
+    // You can adapt sizes responsively using MediaQuery if desired.
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final List<BobaStore> displayStores = _getSortedStores();
     final int itemCount = displayStores.length;
     final double angleIncrement = 2 * pi / itemCount;
- final themeProvider = Provider.of<ThemeProvider>(context);
-return SizedBox(
-  width: radius * 3,
-  height: radius * 3,
-  child: Stack(
-    alignment: Alignment.center,
-    children: [
-      // Display the user's location (city and state) at the center.
-      Text(
-        userLocationText,
-        style: themeProvider.currentTheme.textTheme.bodyMedium,// Now using the style from ThemeProvider.
-        textAlign: TextAlign.center,
-      ),
+
+    return SizedBox(
+      width: radius * 3,
+      height: radius * 3,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Display the user's location (city and state) at the center.
+          Text(
+            userLocationText,
+            style: themeProvider.currentTheme.textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
           // Position each store around the circle.
           for (int i = 0; i < itemCount; i++)
             _buildPositionedStore(context, i, angleIncrement, displayStores),
@@ -92,55 +93,59 @@ return SizedBox(
 
     return Transform.translate(
       offset: Offset(x, y),
-      // Wrap the store widget in a GestureDetector to handle taps.
-      child: GestureDetector(
-        onTap: () {
-          // Navigate to the details screen when tapped.
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => StoreDetailsScreen(
-                store: store,
-                userPosition: userPosition, userId: '',
-              ),
-            ),
-          );
-        },
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: AssetImage(imagePath),
-              backgroundColor: Colors.transparent,
-            ),
-            if (!withinReach)
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey.withOpacity(0.5),
-                ),
-              ),
-            // Overlay the store's name on top of the circle.
-            Text(
-              store.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(
-                    offset: Offset(0, 1),
-                    blurRadius: 2,
-                    color: Colors.black,
+      child: Semantics(
+        // Providing a semantic label for accessibility even though the store name is removed.
+        label: '${store.name} store, ${withinReach ? "within reach" : "not within reach"}',
+        button: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(30),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoreDetailsScreen(
+                    store: store,
+                    userPosition: userPosition,
+                    userId: '',
                   ),
+                ),
+              );
+            },
+            // TweenAnimationBuilder adds a subtle scale animation for each store widget.
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              builder: (context, scale, child) {
+                return Transform.scale(
+                  scale: scale,
+                  child: child,
+                );
+              },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundImage: AssetImage(imagePath),
+                    backgroundColor: Colors.transparent,
+                  ),
+                  if (!withinReach)
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey.withOpacity(0.5),
+                      ),
+                    ),
+                  // The store name overlay has been removed per your request.
                 ],
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
+          ),
         ),
       ),
     );

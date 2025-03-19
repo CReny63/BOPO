@@ -5,10 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
 import 'package:test/locations/geolocator.dart';
 import 'package:test/locations/nearby_stores.dart';
+import 'package:test/services/theme_provider.dart';
+//import 'package:test/services/theme.dart';
 import 'package:test/widgets/Greeting.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:test/widgets/missionScreen.dart';
@@ -256,9 +259,12 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             ),
           ),
         ),
+        
         floatingActionButton: FloatingActionButton(
+          
           onPressed: () {
             if (selectedStore != null) {
+              final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -268,7 +274,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                     storeId: selectedStore!.id,
                     storeLatitude: selectedStore!.latitude,
                     storeLongitude: selectedStore!.longitude,
-                    storeCity: selectedStore!.city,
+                    storeCity: selectedStore!.city, 
+                    themeProvider: themeProvider,
                   ),
                 ),
               );
