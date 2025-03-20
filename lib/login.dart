@@ -352,7 +352,7 @@ class _LoginPageState extends State<LoginPage> {
                             Image.asset('assets/google_logo.png', height: 24),
                             const SizedBox(width: 8),
                             const Text(
-                              'Sign in with Google',
+                              'Continue with Google',
                               style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
                             ),
                           ],

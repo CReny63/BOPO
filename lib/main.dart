@@ -110,6 +110,8 @@ class _MyAppState extends State<MyApp> {
                 isDarkMode: themeProvider.isDarkMode,
               );
             },
+           
+            '/splash3': (context) => const SplashScreen(),
             '/notifications': (context) {
               final themeProvider = Provider.of<ThemeProvider>(context);
               return notifications.NotificationsPage(
