@@ -71,8 +71,8 @@ class ProfilePage extends StatelessWidget {
       ),
       IconButton(
         icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-        tooltip: 'QR Code',
-        onPressed: () => _showQRCodeModal(context),
+        tooltip: 'Friends',
+        onPressed: () => Navigator.pushNamed(context, '/friends'),
       ),
       IconButton(
         icon: const Icon(Icons.home_outlined, size: 21.0),
@@ -80,8 +80,8 @@ class ProfilePage extends StatelessWidget {
         onPressed: () => Navigator.pushNamed(context, '/main'),
       ),
       IconButton(
-        icon: const Icon(Icons.discount_outlined, size: 21.0),
-        tooltip: 'Notifications',
+        icon: const Icon(Icons.map_outlined, size: 21.0),
+        tooltip: 'Map',
         onPressed: () => Navigator.pushNamed(context, '/notifications'),
       ),
       IconButton(

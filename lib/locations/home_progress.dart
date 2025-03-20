@@ -310,9 +310,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           ),
           IconButton(
             icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-            onPressed: () {
-              Navigator.pushNamed(context, '/qr_code');
-            },
+           onPressed: () => Navigator.pushNamed(context, '/friends'),
             tooltip: 'Friends',
           ),
           IconButton(
@@ -321,7 +319,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             tooltip: 'Home',
           ),
           IconButton(
-            icon: const Icon(Icons.discount_outlined, size: 21.0),
+            icon: const Icon(Icons.map_outlined, size: 21.0),
             onPressed: () {
               Navigator.pushNamed(context, '/notifications');
             },

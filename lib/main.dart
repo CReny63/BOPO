@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:test/locations/home_progress.dart';
+import 'package:test/models/friends.dart';
 import 'package:test/models/reviews.dart' as review;
 import 'package:test/locations/geolocator.dart';
 import 'package:test/user.dart';
@@ -96,6 +97,7 @@ class _MyAppState extends State<MyApp> {
           theme: themeProvider.currentTheme,
           initialRoute: '/splash', // Start at splash screen
           routes: {
+            '/friends': (context) => FriendsPage(toggleTheme: themeProvider.toggleTheme, isDarkMode: themeProvider.isDarkMode,),
             '/splash': (context) => SplashScreen(), // Splash1 -> user_admin
             '/splash2': (context) => Splash2(), // Sign in -> splash2 -> home
             '/user_admin': (context) => const UserAdminPage(),

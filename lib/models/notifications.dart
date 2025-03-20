@@ -199,7 +199,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               IconButton(
                 icon: const Icon(Icons.people_alt_outlined, size: 21.0),
                 tooltip: 'QR Code',
-                onPressed: () {},
+                onPressed: () => Navigator.pushNamed(context, '/friends'),
               ),
               IconButton(
                 icon: const Icon(Icons.home_outlined, size: 21.0),
@@ -207,7 +207,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 onPressed: () => Navigator.pushNamed(context, '/main'),
               ),
               IconButton(
-                icon: const Icon(Icons.discount_outlined, size: 21.0),
+                icon: const Icon(Icons.map_outlined, size: 21.0),
                 tooltip: 'Notifications',
                 onPressed: () {}, // Already on this page.
               ),
