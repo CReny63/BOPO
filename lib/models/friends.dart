@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For Clipboard
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test/widgets/app_bar_content.dart';
 
 class FriendsPage extends StatefulWidget {
@@ -20,23 +21,44 @@ class FriendsPage extends StatefulWidget {
 class _FriendsPageState extends State<FriendsPage> {
   String? myFriendCode;
   List<String> friendsList = [];
-  final TextEditingController friendCodeController = TextEditingController();
+  final TextEditingController friendUsernameController = TextEditingController();
+
+  // Placeholder for the current user's username.
+  // In a real app, you'd fetch this from your user management system.
+  final String currentUsername = "MyUsername";
 
   @override
   void initState() {
     super.initState();
-    // Generate a unique code for this user.
-    myFriendCode = _generateUniqueCode();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    // Load or generate a unique friend code for this user.
+    String? savedFriendCode = prefs.getString('myFriendCode');
+    if (savedFriendCode == null) {
+      myFriendCode = _generateUniqueCode();
+      await prefs.setString('myFriendCode', myFriendCode!);
+    } else {
+      myFriendCode = savedFriendCode;
+    }
+    // Load the saved friends list.
+    List<String>? savedFriends = prefs.getStringList('friendsList');
+    if (savedFriends != null) {
+      setState(() {
+        friendsList = savedFriends;
+      });
+    }
   }
 
   String _generateUniqueCode() {
     // Generate a random 8-character alphanumeric code.
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     Random rnd = Random();
-    return String.fromCharCodes(Iterable.generate(
-      8,
-      (_) => chars.codeUnitAt(rnd.nextInt(chars.length)),
-    ));
+    return String.fromCharCodes(
+      Iterable.generate(8, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
+    );
   }
 
   void _copyMyCode() {
@@ -48,22 +70,31 @@ class _FriendsPageState extends State<FriendsPage> {
     }
   }
 
-  void _addFriend() {
-    String friendCode = friendCodeController.text.trim();
-    if (friendCode.isEmpty) {
+  Future<void> _addFriend() async {
+    String friendUsername = friendUsernameController.text.trim();
+    if (friendUsername.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter a friend's code.")),
+        const SnackBar(content: Text("Please enter a friend's username.")),
       );
       return;
     }
-    if (!friendsList.contains(friendCode)) {
+    // Prevent a user from adding themselves.
+    if (friendUsername == currentUsername) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You cannot add yourself.")),
+      );
+      return;
+    }
+    if (!friendsList.contains(friendUsername)) {
       setState(() {
-        friendsList.add(friendCode);
+        friendsList.add(friendUsername);
       });
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('friendsList', friendsList);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Friend added!")),
       );
-      friendCodeController.clear();
+      friendUsernameController.clear();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Friend already added.")),
@@ -80,111 +111,120 @@ class _FriendsPageState extends State<FriendsPage> {
         child: const AppBarContent(),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Card showing the user's unique friend code.
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text(
-                      "Your Friend Code",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      myFriendCode ?? "",
-                      style: const TextStyle(
-                          fontSize: 24, color: Colors.brown),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      onPressed: _copyMyCode,
-                      icon: const Icon(Icons.copy),
-                      label: const Text("Copy Code"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.brown.shade300,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Card for adding a friend via their code.
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text(
-                      "Add a Friend",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: friendCodeController,
-                      decoration: const InputDecoration(
-                        labelText: "Enter Friend's Code",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      onPressed: _addFriend,
-                      icon: const Icon(Icons.person_add),
-                      label: const Text("Add Friend"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.brown.shade300,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Card showing the list of friends.
-            Expanded(
-              child: Card(
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Your Friends",
-                        style:
-                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: friendsList.isEmpty
-                            ? const Center(child: Text("No friends added yet."))
-                            : ListView.builder(
-                                itemCount: friendsList.length,
-                                itemBuilder: (context, index) {
-                                  return ListTile(
-                                    leading: const Icon(Icons.person),
-                                    title: Text(friendsList[index]),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
+        children: [
+          // Card showing the user's unique friend code.
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text(
+                    "Your Friend Code",
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    myFriendCode ?? "",
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineMedium
+                        ?.copyWith(color: Colors.brown),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: _copyMyCode,
+                    icon: const Icon(Icons.copy),
+                    label: Text(
+                      "Copy Code",
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.brown.shade300,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          // Card for adding a friend via their username.
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text(
+                    "Add a Friend",
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: friendUsernameController,
+                    decoration: const InputDecoration(
+                      labelText: "Enter Friend's Username",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: _addFriend,
+                    icon: const Icon(Icons.person_add),
+                    label: Text(
+                      "Add Friend",
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.brown.shade300,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Card showing the list of friends.
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Your Friends",
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  friendsList.isEmpty
+                      ? Center(
+                          child: Text(
+                            "No friends added yet.",
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: friendsList.length,
+                          itemBuilder: (context, index) {
+                            return ListTile(
+                              leading: const Icon(Icons.person),
+                              title: Text(
+                                friendsList[index],
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                            );
+                          },
+                        ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       // Use your existing bottom navigation.
       bottomNavigationBar: BottomAppBar(

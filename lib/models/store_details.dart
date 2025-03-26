@@ -7,8 +7,8 @@ import 'package:test/locations/boba_store.dart';
 
 class StoreDetailsScreen extends StatefulWidget {
   final BobaStore store;
-  final Position userPosition; // initial user position
-  final String userId; // Unique identifier for the current user
+  final Position userPosition;
+  final String userId;
 
   const StoreDetailsScreen({
     Key? key,
@@ -23,7 +23,7 @@ class StoreDetailsScreen extends StatefulWidget {
 
 class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   bool visitRecorded = false;
-  final double thresholdMeters = 3.05; // Approximately 10 feet
+  final double thresholdMeters = 3.05; // ~10 feet
 
   Timer? _locationMonitorTimer;
   Timer? _countdownTimer;
@@ -33,8 +33,9 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    // Start monitoring the user's location every second.
-    _locationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+    // Monitor the user's location every second.
+    _locationMonitorTimer =
+        Timer.periodic(Duration(seconds: 1), (timer) {
       _checkAndStartCountdown();
     });
   }
@@ -55,18 +56,17 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
       print("Error obtaining position: $e");
       return;
     }
-    // Calculate the distance from the current position to the store.
     double distance = Geolocator.distanceBetween(
       currentPosition.latitude,
       currentPosition.longitude,
       widget.store.latitude,
       widget.store.longitude,
     );
-    // If within range and no countdown active and visit not yet recorded, start countdown.
+    // If within range and no countdown is active and the visit is not recorded, start countdown.
     if (distance <= thresholdMeters && !_timerActive && !visitRecorded) {
       _startCountdown();
     } else if (distance > thresholdMeters && _timerActive) {
-      // Cancel countdown if user moves out of range.
+      // Cancel the countdown if the user moves out of range.
       _cancelCountdown();
     }
   }
@@ -82,7 +82,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
       });
       if (_timeRemaining <= 0) {
         timer.cancel();
-        // Once countdown reaches zero, verify the user is still in range.
+        // Verify the user is still in range.
         Position updatedPosition;
         try {
           updatedPosition = await Geolocator.getCurrentPosition(
@@ -99,14 +99,12 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
           widget.store.longitude,
         );
         if (updatedDistance <= thresholdMeters) {
-          // User stayed in range for 30 seconds: record the visit.
           await _recordVisit(updatedPosition);
           setState(() {
             visitRecorded = true;
             _timerActive = false;
           });
         } else {
-          // User moved away before 30 seconds ended.
           _cancelCountdown();
         }
       }
@@ -123,21 +121,20 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   }
 
   Future<void> _recordVisit(Position position) async {
-    // Save the visit under a dedicated node using the store ID and user ID.
     final DatabaseReference visitsRef = FirebaseDatabase.instance
         .ref()
         .child('visits')
         .child(widget.store.id);
-    final DataSnapshot snapshot = await visitsRef.child(widget.userId).get();
+    final DataSnapshot snapshot =
+        await visitsRef.child(widget.userId).get();
 
     if (!snapshot.exists) {
       await visitsRef.child(widget.userId).set({
         'timestamp': DateTime.now().toIso8601String(),
-        'latitude': widget.userPosition.latitude,
-        'longitude': widget.userPosition.longitude,
+        'latitude': position.latitude,
+        'longitude': position.longitude,
       });
 
-      // Update the store's total visit count using a transaction.
       final DatabaseReference storeRef = FirebaseDatabase.instance
           .ref()
           .child('stores')
@@ -147,7 +144,8 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
       await storeRef.runTransaction((mutableData) async {
         if (mutableData.value != null) {
           Map data = Map.from(mutableData.value as Map);
-          int currentVisits = data['visits'] != null ? data['visits'] as int : 0;
+          int currentVisits =
+              data['visits'] != null ? data['visits'] as int : 0;
           data['visits'] = currentVisits + 1;
           mutableData.value = data;
         }
@@ -207,7 +205,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.store,
                 size: 100,
                 color: Colors.grey,

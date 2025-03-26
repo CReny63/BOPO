@@ -1,12 +1,12 @@
 import 'dart:async';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
-//import 'package:test/services/store_service.dart';
 import 'package:test/widgets/app_bar_content.dart';
-//import 'package:test/models/boba_store.dart'; // Ensure this matches your file structure
 
 class NotificationsPage extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -39,7 +39,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _getUserLocation().then((_) {
       _fetchStoresUsingAlgorithm();
     });
-    // Simulate splash screen delay
+    // Simulate splash screen delay.
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
         _isLoading = false;
@@ -47,25 +47,29 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
+  // Helper function to load and resize a marker asset.
+  Future<BitmapDescriptor> getResizedMarker(String assetPath, int width) async {
+    ByteData data = await rootBundle.load(assetPath);
+    ui.Codec codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetWidth: width, // Set the desired width in pixels.
+    );
+    ui.FrameInfo fi = await codec.getNextFrame();
+    final ByteData? byteData =
+        await fi.image.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
+  }
+
   Future<void> _loadCustomMarker() async {
-    // Load your custom boba-themed marker image.
-    BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(15, 15)),
-      'assets/capy_boba.png',
-    ).then((icon) {
-      setState(() {
-        bobaMarkerIcon = icon;
-      });
+    // Adjust the width parameter to control the marker size.
+    BitmapDescriptor icon = await getResizedMarker('assets/capy_boba.png', 50);
+    setState(() {
+      bobaMarkerIcon = icon;
     });
   }
 
   Future<void> _loadMapStyle() async {
-    // Optionally load a custom map style (e.g., from assets/map_style.json).
-    // String style = await DefaultAssetBundle.of(context)
-    //     .loadString('assets/map_style.json');
-    // setState(() {
-    //   _mapStyle = style;
-    // });
+    // Optionally load a custom map style if needed.
   }
 
   Future<void> _getUserLocation() async {
@@ -98,13 +102,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
     Set<Marker> newMarkers = {};
     for (BobaStore store in stores) {
-      // Assume BobaStore has double fields: latitude, longitude, and a string id and name.
-      double lat = store.latitude;
-      double lng = store.longitude;
       newMarkers.add(
         Marker(
           markerId: MarkerId(store.id),
-          position: LatLng(lat, lng),
+          position: LatLng(store.latitude, store.longitude),
           infoWindow: InfoWindow(title: store.name),
           icon: bobaMarkerIcon ?? BitmapDescriptor.defaultMarker,
         ),
@@ -134,7 +135,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // While loading, display only your splash screen.
     if (_isLoading) {
       return Scaffold(
         appBar: PreferredSize(
@@ -157,7 +157,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Display only your splash logo.
                 Image.asset('assets/capy_boba.png', width: 100, height: 100),
                 const SizedBox(height: 20),
                 const CircularProgressIndicator(
@@ -169,7 +168,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       );
     } else {
-      // Once loading is complete, show the interactive map.
       return Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),

@@ -125,7 +125,7 @@ class _MyAppState extends State<MyApp> {
               final themeProvider = Provider.of<ThemeProvider>(context);
               return ProfilePage(
                 toggleTheme: themeProvider.toggleTheme,
-                isDarkMode: themeProvider.isDarkMode,
+                isDarkMode: themeProvider.isDarkMode, username: '', email: '',
               );
             },
             // Add other routes here if needed

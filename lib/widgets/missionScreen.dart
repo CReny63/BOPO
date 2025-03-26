@@ -34,31 +34,29 @@ class SegmentedProgressIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double totalWidth = constraints.maxWidth;
-        double totalSpacing = spacing * (goal - 1);
-        double segmentWidth = (totalWidth - totalSpacing) / goal;
-        List<Widget> segments = [];
-        for (int i = 0; i < goal; i++) {
-          segments.add(Container(
-            width: segmentWidth,
-            height: 12.0,
-            decoration: BoxDecoration(
-              color: i < current ? Colors.green : Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(6.0),
-            ),
-          ));
-          if (i < goal - 1) {
-            segments.add(SizedBox(width: spacing));
-          }
+    return LayoutBuilder(builder: (context, constraints) {
+      double totalWidth = constraints.maxWidth;
+      double totalSpacing = spacing * (goal - 1);
+      double segmentWidth = (totalWidth - totalSpacing) / goal;
+      List<Widget> segments = [];
+      for (int i = 0; i < goal; i++) {
+        segments.add(Container(
+          width: segmentWidth,
+          height: 12.0,
+          decoration: BoxDecoration(
+            color: i < current ? Colors.green : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(6.0),
+          ),
+        ));
+        if (i < goal - 1) {
+          segments.add(SizedBox(width: spacing));
         }
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: segments,
-        );
-      },
-    );
+      }
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: segments,
+      );
+    });
   }
 }
 
@@ -96,7 +94,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
   void initState() {
     super.initState();
     // Check location every 5 seconds.
-    _locationCheckTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _locationCheckTimer =
+        Timer.periodic(const Duration(seconds: 5), (timer) {
       _checkLocationAndRegisterVisit();
     });
   }
@@ -191,31 +190,36 @@ class _MissionsScreenState extends State<MissionsScreen> {
   List<Mission> buildMissions(int uniqueCount) {
     Mission m1 = Mission(
       title: "Visit 3 Boba Stores",
-      description: "Visit three different boba stores to unlock your reward!",
+      description:
+          "Visit three different boba stores to unlock your reward!",
       current: uniqueCount.clamp(0, 3),
       goal: 3,
     );
     Mission m2 = Mission(
       title: "Visit 5 Boba Stores",
-      description: "Visit five different boba stores to unlock your bonus!",
+      description:
+          "Visit five different boba stores to unlock your bonus!",
       current: uniqueCount.clamp(0, 5),
       goal: 5,
     );
     Mission m3 = Mission(
       title: "Visit 10 Boba Stores",
-      description: "Visit ten different boba stores for a major reward!",
+      description:
+          "Visit ten different boba stores for a major reward!",
       current: uniqueCount.clamp(0, 10),
       goal: 10,
     );
     Mission m4 = Mission(
       title: "Visit 15 Boba Stores",
-      description: "Visit fifteen boba stores to unlock an even bigger bonus!",
+      description:
+          "Visit fifteen boba stores to unlock an even bigger bonus!",
       current: uniqueCount.clamp(0, 15),
       goal: 15,
     );
     Mission m5 = Mission(
       title: "Visit 20 Boba Stores",
-      description: "Visit twenty boba stores for the ultimate reward!",
+      description:
+          "Visit twenty boba stores for the ultimate reward!",
       current: uniqueCount.clamp(0, 20),
       goal: 20,
     );
@@ -235,24 +239,31 @@ class _MissionsScreenState extends State<MissionsScreen> {
   /// Build a mission card widget with a curved rectangle.
   /// If locked, overlay a semi-transparent lock icon.
   Widget buildMissionCard(Mission mission, bool unlocked) {
-    // Use the current theme for styling.
     TextStyle titleStyle = TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.bold,
-      color: unlocked ? Theme.of(context).textTheme.titleLarge?.color ?? Colors.black : Colors.grey,
+      color: unlocked
+          ? Theme.of(context).textTheme.titleLarge?.color ?? Colors.black
+          : Colors.grey,
     );
     TextStyle descStyle = TextStyle(
       fontSize: 18,
-      color: unlocked ? Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87 : Colors.grey,
+      color: unlocked
+          ? Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87
+          : Colors.grey,
     );
     TextStyle progressStyle = TextStyle(
       fontSize: 18,
-      color: unlocked ? Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black : Colors.grey,
+      color: unlocked
+          ? Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black
+          : Colors.grey,
     );
     Widget cardContent = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: unlocked ? Theme.of(context).cardColor : Theme.of(context).cardColor.withOpacity(0.5),
+        color: unlocked
+            ? Theme.of(context).cardColor
+            : Theme.of(context).cardColor.withOpacity(0.5),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -268,15 +279,12 @@ class _MissionsScreenState extends State<MissionsScreen> {
         children: [
           Text(mission.title, style: titleStyle),
           const SizedBox(height: 12),
-          Text(mission.description, style: descStyle, textAlign: TextAlign.center),
+          Text(mission.description,
+              style: descStyle, textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return SegmentedProgressIndicator(
-                current: mission.current,
-                goal: mission.goal,
-              );
-            },
+          SegmentedProgressIndicator(
+            current: mission.current,
+            goal: mission.goal,
           ),
           const SizedBox(height: 16),
           Text(
@@ -325,40 +333,23 @@ class _MissionsScreenState extends State<MissionsScreen> {
         stream: userVisitsRef.onValue,
         builder: (context, snapshot) {
           int uniqueCount = 0;
-          if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+          if (snapshot.hasData &&
+              snapshot.data!.snapshot.value != null) {
             final Map<dynamic, dynamic> visitsMap =
                 snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
             uniqueCount = visitsMap.keys.length;
           }
           List<Mission> missions = buildMissions(uniqueCount);
-          List<Widget> cards = [];
-          for (int i = 0; i < missions.length; i++) {
-            bool unlocked = isMissionUnlocked(i, uniqueCount);
-            cards.add(buildMissionCard(missions[i], unlocked));
-            if (i < missions.length - 1) {
-              cards.add(const SizedBox(height: 10));
-            }
-          }
-          // Stack the cards like pages in a book.
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SizedBox(
-                height: 400,
-                child: Stack(
-                  alignment: Alignment.topCenter,
-                  children: [
-                    for (int i = missions.length - 1; i >= 0; i--)
-                      Positioned(
-                        top: i * 20.0,
-                        left: 0,
-                        right: 0,
-                        child: cards[i * 2],
-                      ),
-                  ],
-                ),
-              ),
-            ),
+          return ListView.builder(
+            padding: const EdgeInsets.all(16.0),
+            itemCount: missions.length,
+            itemBuilder: (context, i) {
+              bool unlocked = isMissionUnlocked(i, uniqueCount);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: buildMissionCard(missions[i], unlocked),
+              );
+            },
           );
         },
       ),

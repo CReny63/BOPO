@@ -1,204 +1,161 @@
 import 'package:flutter/material.dart';
-// If you no longer need direct access to Provider, you can remove this import.
-// import 'package:provider/provider.dart';
-// import 'package:meta_verse/services/theme_provider.dart'; // Not needed if we don't call Provider.of<ThemeProvider>
-
-import 'package:test/widgets/app_bar_content.dart'; // If you have a separate custom AppBarContent
-// or define your own TopAppBarContent or something similar.
+import 'package:test/widgets/app_bar_content.dart';
 
 class ProfilePage extends StatelessWidget {
   final VoidCallback toggleTheme;
   final bool isDarkMode;
+  final String username;
+  final String email;
+  // The password is not displayed in plain text – using a masked value.
+  final String maskedPassword;
 
   const ProfilePage({
     super.key,
     required this.toggleTheme,
     required this.isDarkMode,
+    required this.username,
+    required this.email,
+    this.maskedPassword = '********',
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      // Here we call our custom app bar, but rely on the values from constructor:
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: const AppBarContent(),
-
-      ),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Column(
-        children: [
-          Expanded(
-            child: DefaultTabController(
-              length: 2,
-              child: Column(
-                children: <Widget>[
-                  // Tab bar
-                  Container(
-                    color: Theme.of(context).cardColor,
-                    child: const TabBar(
-                      labelColor: Color.fromARGB(255, 206, 189, 152),
-                      tabs: [
-                        Tab(text: 'Account'),
-                        Tab(text: 'Settings'),
-                      ],
-                    ),
-                  ),
-                  // Tab bar views
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildAccountTab(),
-                        _buildSettingsTab(context),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomAppBar(
-  color: Theme.of(context).colorScheme.surface,
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.spaceAround,
-    children: <Widget>[
-      IconButton(
-        icon: const Icon(Icons.star_outline, size: 21.0),
-        tooltip: 'Reviews',
-        onPressed: () => Navigator.pushNamed(context, '/review'),
-      ),
-      IconButton(
-        icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-        tooltip: 'Friends',
-        onPressed: () => Navigator.pushNamed(context, '/friends'),
-      ),
-      IconButton(
-        icon: const Icon(Icons.home_outlined, size: 21.0),
-        tooltip: 'Home',
-        onPressed: () => Navigator.pushNamed(context, '/main'),
-      ),
-      IconButton(
-        icon: const Icon(Icons.map_outlined, size: 21.0),
-        tooltip: 'Map',
-        onPressed: () => Navigator.pushNamed(context, '/notifications'),
-      ),
-      IconButton(
-        icon: const Icon(Icons.person_outline, size: 21.0),
-        tooltip: 'Profile',
-        onPressed: () {
-          // Handle profile tap action or navigation
-        },
-      ),
-    ],
-  ),
-),
-
-    );
-  }
-
-  // Widget _buildBottomNavItem(
-  //   BuildContext context,
-  //   IconData iconData,
-  //   String label,
-  //   VoidCallback onTap, {
-  //   double iconSize = 24.0,
-  // }) {
-  //   return GestureDetector(
-  //     onTap: onTap,
-  //     child: Column(
-  //       mainAxisSize: MainAxisSize.min,
-  //       mainAxisAlignment: MainAxisAlignment.center,
-  //       children: <Widget>[
-  //         Icon(iconData, size: iconSize),
-  //         Text(label, style: const TextStyle(fontSize: 11)),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  void _showQRCodeModal(BuildContext context) {
+  // Shows the Manage Account dialog with user details and a reset password button.
+  void _showManageAccountDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
-        return const AlertDialog(
-          title: Text('QR Code'),
-          content: Text('QR Code content here'),
+        return AlertDialog(
+          title: const Text('Manage Account'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Username'),
+                subtitle: Text(username),
+              ),
+              ListTile(
+                title: const Text('Email'),
+                subtitle: Text(email),
+              ),
+              ListTile(
+                title: const Text('Password'),
+                subtitle: Text(maskedPassword),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // Add your reset password logic here (e.g. sending a one-time code).
+                print('Reset password pressed - sending one time code.');
+                Navigator.of(context).pop();
+              },
+              child: const Text('Reset Password'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildAccountTab() {
+  // Shows the Privacy dialog with details about the user's location usage.
+  void _showPrivacyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Privacy'),
+          content: const Text(
+            'Your location data is used solely for personalized recommendations and will not be shared with third parties.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Logs out the user.
+  void _logout(BuildContext context) {
+    // Replace this with your logout logic (e.g. FirebaseAuth.instance.signOut()).
+    print('Logout pressed');
+    Navigator.pushReplacementNamed(context, '/login');
+  }
+
+  // Build the Account tab.
+  Widget _buildAccountTab(BuildContext context) {
     return ListView(
       children: [
         _buildListTile(
-          'My Rewards',
-          'Manage Points, bonuses, and streaks',
-          Icons.money_sharp,
-          () {},
+          'My Missions',
+          'View your missions progress',
+          Icons.emoji_events,
+          () => Navigator.pushNamed(context, '/missions'),
         ),
         _buildListTile(
           'Get Help',
-          'Need help with orders?',
+          'Access Q/A support',
           Icons.help_outline,
-          () {},
+          () => Navigator.pushNamed(context, '/q_a'),
         ),
         _buildListTile(
           'Saved Stores',
-          'Check out your favorite stores',
+          'View your starred stores',
           Icons.store,
-          () {},
-        ),
-        _buildListTile(
-          'Gift Card',
-          'Manage gift cards',
-          Icons.payment,
-          () {},
+          () => Navigator.pushNamed(context, '/savedStores'),
         ),
         _buildListTile(
           'Privacy',
-          'Learn about Privacy and manage settings',
+          'Learn about how your location is used',
           Icons.privacy_tip_outlined,
-          () {},
+          () => _showPrivacyDialog(context),
         ),
       ],
     );
   }
 
+  // Build the Settings tab.
   Widget _buildSettingsTab(BuildContext context) {
     return ListView(
       children: [
         _buildListTile(
           'Manage Account',
-          'Update information and manage your account',
+          'View and update your account details',
           Icons.account_circle,
-          () {},
-        ),
-        _buildListTile(
-          'Payment',
-          'Manage Payment methods and credits',
-          Icons.payment,
-          () {},
+          () => _showManageAccountDialog(context),
         ),
         _buildListTile(
           'Rate Us',
-          'Leave us a review on the app store',
+          'Leave a review on the app store',
           Icons.rate_review_outlined,
-          () {},
+          () {
+            // Add your Rate Us functionality here.
+          },
         ),
-        // Toggle theme
         _buildListTile(
           isDarkMode ? 'Light Mode' : 'Dark Mode',
           isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
           isDarkMode ? Icons.wb_sunny : Icons.dark_mode,
           toggleTheme,
         ),
+        _buildListTile(
+          'Logout',
+          'Sign out of your account',
+          Icons.logout,
+          () => _logout(context),
+        ),
       ],
     );
   }
 
+  // Helper method to build a ListTile.
   Widget _buildListTile(
     String title,
     String subtitle,
@@ -210,6 +167,83 @@ class ProfilePage extends StatelessWidget {
       title: Text(title),
       subtitle: Text(subtitle),
       onTap: onTap,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(75),
+        child: const AppBarContent(),
+      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Column(
+        children: [
+          Expanded(
+            child: DefaultTabController(
+              length: 2,
+              child: Column(
+                children: <Widget>[
+                  Container(
+                    color: Theme.of(context).cardColor,
+                    child: const TabBar(
+                      labelColor: Color.fromARGB(255, 206, 189, 152),
+                      tabs: [
+                        Tab(text: 'Account'),
+                        Tab(text: 'Settings'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildAccountTab(context),
+                        _buildSettingsTab(context),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: BottomAppBar(
+        color: Theme.of(context).colorScheme.surface,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.star_outline, size: 21.0),
+              tooltip: 'Reviews',
+              onPressed: () => Navigator.pushNamed(context, '/review'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.people_alt_outlined, size: 21.0),
+              tooltip: 'Friends',
+              onPressed: () => Navigator.pushNamed(context, '/friends'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.home_outlined, size: 21.0),
+              tooltip: 'Home',
+              onPressed: () => Navigator.pushNamed(context, '/main'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.map_outlined, size: 21.0),
+              tooltip: 'Map',
+              onPressed: () => Navigator.pushNamed(context, '/notifications'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.person_outline, size: 21.0),
+              tooltip: 'Profile',
+              onPressed: () {
+                // Already on this page.
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
