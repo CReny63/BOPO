@@ -1,232 +1,210 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // For Clipboard
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test/widgets/app_bar_content.dart';
 
-class FriendsPage extends StatefulWidget {
+class FeaturedPage extends StatefulWidget {
   final VoidCallback toggleTheme;
   final bool isDarkMode;
 
-  const FriendsPage({
-    super.key,
+  const FeaturedPage({
+    Key? key,
     required this.toggleTheme,
     required this.isDarkMode,
-  });
+  }) : super(key: key);
 
   @override
-  _FriendsPageState createState() => _FriendsPageState();
+  _FeaturedPageState createState() => _FeaturedPageState();
 }
 
-class _FriendsPageState extends State<FriendsPage> {
-  String? myFriendCode;
-  List<String> friendsList = [];
-  final TextEditingController friendUsernameController = TextEditingController();
+class _FeaturedPageState extends State<FeaturedPage> {
+  // List of featured items using asset images.
+  // Each item has a unique 'id' to track daily votes.
+  final List<Map<String, dynamic>> featuredItems = [
+    {
+      'id': 'boba1',
+      'imagePath': 'assets/sharetea_featured.png',
+      'caption': 'New Drink: Matcha Bliss',
+      'likes': 0,
+      'dislikes': 0,
+    },
+    {
+      'id': 'boba2',
+      'imagePath': 'assets/dingtea_featured.png',
+      'caption': 'Trending: Wintermelon',
+      'likes': 0,
+      'dislikes': 0,
+    },
+    {
+      'id': 'boba3',
+      'imagePath': 'assets/teaamo_featured.png',
+      'caption': 'Trending: Matcha Strawberry',
+      'likes': 0,
+      'dislikes': 0,
+    },
+    // Add more featured items as needed.
+  ];
 
-  // Placeholder for the current user's username.
-  // In a real app, you'd fetch this from your user management system.
-  final String currentUsername = "MyUsername";
+  late String _today;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _today = _getToday();
   }
 
-  Future<void> _loadData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    // Load or generate a unique friend code for this user.
-    String? savedFriendCode = prefs.getString('myFriendCode');
-    if (savedFriendCode == null) {
-      myFriendCode = _generateUniqueCode();
-      await prefs.setString('myFriendCode', myFriendCode!);
+  // Returns a simple date string (e.g., "2025-03-28")
+  String _getToday() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month}-${now.day}';
+  }
+
+  // Handles voting for an item.
+  // voteType is either 'like' or 'dislike'
+  Future<void> _voteItem(int index, String voteType) async {
+    final prefs = await SharedPreferences.getInstance();
+    final item = featuredItems[index];
+    final key = 'vote_${item['id']}';
+    String? storedValue = prefs.getString(key);
+
+    String? storedVote;
+    String storedDate = '';
+
+    if (storedValue != null) {
+      // Stored format: "vote|date" (e.g., "like|2025-03-28")
+      final parts = storedValue.split('|');
+      if (parts.length == 2) {
+        storedVote = parts[0];
+        storedDate = parts[1];
+      }
+    }
+
+    // Check if a vote was cast today
+    if (storedDate == _today) {
+      // If the same vote is tapped again, do nothing.
+      if (storedVote == voteType) {
+        return;
+      } else {
+        // User is switching vote: update the counts accordingly.
+        setState(() {
+          if (voteType == 'like') {
+            if (item['dislikes'] > 0) item['dislikes']--;
+            item['likes']++;
+          } else if (voteType == 'dislike') {
+            if (item['likes'] > 0) item['likes']--;
+            item['dislikes']++;
+          }
+        });
+        await prefs.setString(key, '$voteType|$_today');
+      }
     } else {
-      myFriendCode = savedFriendCode;
-    }
-    // Load the saved friends list.
-    List<String>? savedFriends = prefs.getStringList('friendsList');
-    if (savedFriends != null) {
+      // No vote for today: register the new vote.
       setState(() {
-        friendsList = savedFriends;
+        if (voteType == 'like') {
+          item['likes']++;
+        } else if (voteType == 'dislike') {
+          item['dislikes']++;
+        }
       });
-    }
-  }
-
-  String _generateUniqueCode() {
-    // Generate a random 8-character alphanumeric code.
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    Random rnd = Random();
-    return String.fromCharCodes(
-      Iterable.generate(8, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
-    );
-  }
-
-  void _copyMyCode() {
-    if (myFriendCode != null) {
-      Clipboard.setData(ClipboardData(text: myFriendCode!));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Your code has been copied!")),
-      );
-    }
-  }
-
-  Future<void> _addFriend() async {
-    String friendUsername = friendUsernameController.text.trim();
-    if (friendUsername.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter a friend's username.")),
-      );
-      return;
-    }
-    // Prevent a user from adding themselves.
-    if (friendUsername == currentUsername) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You cannot add yourself.")),
-      );
-      return;
-    }
-    if (!friendsList.contains(friendUsername)) {
-      setState(() {
-        friendsList.add(friendUsername);
-      });
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('friendsList', friendsList);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Friend added!")),
-      );
-      friendUsernameController.clear();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Friend already added.")),
-      );
+      await prefs.setString(key, '$voteType|$_today');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Use your existing top AppBar.
+      // Reuse your existing top app bar for consistency.
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: const AppBarContent(),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // Card showing the user's unique friend code.
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Text(
-                    "Your Friend Code",
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    myFriendCode ?? "",
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(color: Colors.brown),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: _copyMyCode,
-                    icon: const Icon(Icons.copy),
-                    label: Text(
-                      "Copy Code",
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.brown.shade300,
-                    ),
-                  ),
-                ],
-              ),
+      body: CarouselSlider.builder(
+        itemCount: featuredItems.length,
+        itemBuilder: (context, index, realIndex) {
+          final item = featuredItems[index];
+          return Card(
+            elevation: 4,
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-          const SizedBox(height: 24),
-          // Card for adding a friend via their username.
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Text(
-                    "Add a Friend",
-                    style: Theme.of(context).textTheme.titleLarge,
+            child: Stack(
+              children: [
+                // Display asset image.
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    item['imagePath'],
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: friendUsernameController,
-                    decoration: const InputDecoration(
-                      labelText: "Enter Friend's Username",
-                      border: OutlineInputBorder(),
+                ),
+                // Caption overlay.
+                Positioned(
+                  bottom: 70,
+                  left: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    color: Colors.black54,
+                    child: Text(
+                      item['caption'],
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(color: Colors.white),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: _addFriend,
-                    icon: const Icon(Icons.person_add),
-                    label: Text(
-                      "Add Friend",
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.brown.shade300,
-                    ),
+                ),
+                // Like button and count.
+                Positioned(
+                  bottom: 10,
+                  left: 10,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.thumb_up, color: Colors.white),
+                        onPressed: () => _voteItem(index, 'like'),
+                      ),
+                      Text(
+                        '${item['likes']}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                // Dislike button and count.
+                Positioned(
+                  bottom: 10,
+                  right: 10,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.thumb_down, color: Colors.white),
+                        onPressed: () => _voteItem(index, 'dislike'),
+                      ),
+                      Text(
+                        '${item['dislikes']}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 24),
-          // Card showing the list of friends.
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Your Friends",
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  friendsList.isEmpty
-                      ? Center(
-                          child: Text(
-                            "No friends added yet.",
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: friendsList.length,
-                          itemBuilder: (context, index) {
-                            return ListTile(
-                              leading: const Icon(Icons.person),
-                              title: Text(
-                                friendsList[index],
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                            );
-                          },
-                        ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          );
+        },
+        options: CarouselOptions(
+          height: MediaQuery.of(context).size.height * 0.75,
+          enlargeCenterPage: true,
+          enableInfiniteScroll: false,
+          autoPlay: true,
+        ),
       ),
-      // Use your existing bottom navigation.
+      // Reuse your existing bottom navigation.
       bottomNavigationBar: BottomAppBar(
         color: Theme.of(context).colorScheme.surface,
         child: Row(
@@ -234,8 +212,8 @@ class _FriendsPageState extends State<FriendsPage> {
           children: <Widget>[
             IconButton(
               icon: const Icon(Icons.star_outline, size: 21.0),
-              tooltip: 'Reviews',
-              onPressed: () => Navigator.pushNamed(context, '/review'),
+              tooltip: 'Featured',
+              onPressed: () => Navigator.pushNamed(context, '/featured'),
             ),
             IconButton(
               icon: const Icon(Icons.people_alt_outlined, size: 21.0),

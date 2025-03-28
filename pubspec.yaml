@@ -116,6 +116,9 @@ flutter:
     - assets/BOPO.png
     - assets/capy_boba.png
     - assets/google_logo.png
+    - assets/sharetea_featured.png
+    - assets/dingtea_featured.png
+    - assets/teaamo_featured.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

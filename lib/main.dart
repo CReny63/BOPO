@@ -97,7 +97,7 @@ class _MyAppState extends State<MyApp> {
           theme: themeProvider.currentTheme,
           initialRoute: '/splash', // Start at splash screen
           routes: {
-            '/friends': (context) => FriendsPage(toggleTheme: themeProvider.toggleTheme, isDarkMode: themeProvider.isDarkMode,),
+            '/friends': (context) => FeaturedPage(toggleTheme: themeProvider.toggleTheme, isDarkMode: themeProvider.isDarkMode,),
             '/splash': (context) => SplashScreen(), // Splash1 -> user_admin
             '/splash2': (context) => Splash2(), // Sign in -> splash2 -> home
             '/user_admin': (context) => const UserAdminPage(),

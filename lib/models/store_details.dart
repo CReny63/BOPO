@@ -23,19 +23,24 @@ class StoreDetailsScreen extends StatefulWidget {
 
 class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   bool visitRecorded = false;
-  final double thresholdMeters = 3.05; // ~10 feet
+  // Increased threshold to 13.05 meters.
+  final double thresholdMeters = 20.05; 
 
   Timer? _locationMonitorTimer;
   Timer? _countdownTimer;
   int _timeRemaining = 30;
   bool _timerActive = false;
 
+  // State variable to store the most recent user position.
+  Position? _currentUserPosition;
+
   @override
   void initState() {
     super.initState();
+    // Initially set _currentUserPosition to the passed userPosition.
+    _currentUserPosition = widget.userPosition;
     // Monitor the user's location every second.
-    _locationMonitorTimer =
-        Timer.periodic(Duration(seconds: 1), (timer) {
+    _locationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       _checkAndStartCountdown();
     });
   }
@@ -52,16 +57,22 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
     try {
       currentPosition = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
+      // Update the state with the latest position.
+      setState(() {
+        _currentUserPosition = currentPosition;
+      });
     } catch (e) {
       print("Error obtaining position: $e");
       return;
     }
+
     double distance = Geolocator.distanceBetween(
       currentPosition.latitude,
       currentPosition.longitude,
       widget.store.latitude,
       widget.store.longitude,
     );
+
     // If within range and no countdown is active and the visit is not recorded, start countdown.
     if (distance <= thresholdMeters && !_timerActive && !visitRecorded) {
       _startCountdown();
@@ -125,8 +136,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
         .ref()
         .child('visits')
         .child(widget.store.id);
-    final DataSnapshot snapshot =
-        await visitsRef.child(widget.userId).get();
+    final DataSnapshot snapshot = await visitsRef.child(widget.userId).get();
 
     if (!snapshot.exists) {
       await visitsRef.child(widget.userId).set({
@@ -144,8 +154,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
       await storeRef.runTransaction((mutableData) async {
         if (mutableData.value != null) {
           Map data = Map.from(mutableData.value as Map);
-          int currentVisits =
-              data['visits'] != null ? data['visits'] as int : 0;
+          int currentVisits = data['visits'] != null ? data['visits'] as int : 0;
           data['visits'] = currentVisits + 1;
           mutableData.value = data;
         }
@@ -185,12 +194,16 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double distance = Geolocator.distanceBetween(
-      widget.userPosition.latitude,
-      widget.userPosition.longitude,
-      widget.store.latitude,
-      widget.store.longitude,
-    );
+    // Use the updated _currentUserPosition to calculate the distance.
+    double distance = 0;
+    if (_currentUserPosition != null) {
+      distance = Geolocator.distanceBetween(
+        _currentUserPosition!.latitude,
+        _currentUserPosition!.longitude,
+        widget.store.latitude,
+        widget.store.longitude,
+      );
+    }
     double distanceKm = distance / 1000;
     double distanceMiles = distanceKm * 0.621371;
 
