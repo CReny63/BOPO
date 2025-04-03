@@ -1,49 +1,34 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:hive_flutter/adapters.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart';
 import 'package:test/locations/home_progress.dart';
 import 'package:test/models/friends.dart';
 import 'package:test/models/reviews.dart' as review;
 import 'package:test/locations/geolocator.dart';
 import 'package:test/user.dart';
-import 'package:provider/provider.dart';
-
-// Import your widgets/models
-import 'models/notifications.dart' as notifications;
-import 'services/theme_provider.dart';
-import 'login.dart';
-import 'models/user_admin_page.dart';
-import 'services/splash.dart';
-import 'services/splash2.dart';
-import 'models/profile.dart';
+import 'package:test/models/notifications.dart' as notifications;
+import 'package:test/services/theme_provider.dart';
+import 'package:test/login.dart';
+import 'package:test/services/splash.dart';
+import 'package:test/services/splash2.dart';
+import 'package:test/models/profile.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:test/models/friends.dart'; // Updated FeaturedPage
+// import 'package:test/models/user_admin_page.dart'; // Uncomment if needed
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(); // Initialize Firebase
 
-  await GoogleSignIn()
-      .signOut(); //automatically sign out user after every restart
-
-  await FirebaseAuth.instance
-      .signOut(); //automatically sign out of firebase after every restart
-
-  // FirestoreDataUploader uploader = FirestoreDataUploader();
-
-  // // Upload data to Firestore
-  // await uploader.uploadSampleData(); //firebase sample database
-
-  // // Exit the app after upload
-  // print('Data upload completed.');
-
-  //await signInAnonymously();
+  // Automatically sign out after every restart.
+  await GoogleSignIn().signOut();
+  await FirebaseAuth.instance.signOut();
 
   // Initialize Hive for Flutter
   await Hive.initFlutter();
-
-  // Register adapters if you haven't yet
   Hive.registerAdapter(UserAdapter());
 
   runApp(
@@ -56,16 +41,6 @@ void main() async {
     ),
   );
 }
-
-// Future<void> signInAnonymously() async {
-//   try {
-//     UserCredential userCredential =
-//         await FirebaseAuth.instance.signInAnonymously();
-//     print('Signed in as: ${userCredential.user?.uid}');
-//   } catch (e) {
-//     print('Error during anonymous sign-in: $e');
-//   }
-// }
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -80,7 +55,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Request location permission at startup
+    // Request location permission at startup.
     _geoService.determinePosition().then((position) {
       print("Obtained position: $position");
     }).catchError((error) {
@@ -97,48 +72,42 @@ class _MyAppState extends State<MyApp> {
           theme: themeProvider.currentTheme,
           initialRoute: '/splash', // Start at splash screen
           routes: {
-            '/friends': (context) => FeaturedPage(toggleTheme: themeProvider.toggleTheme, isDarkMode: themeProvider.isDarkMode,),
-            '/splash': (context) => SplashScreen(), // Splash1 -> user_admin
-            '/splash2': (context) => Splash2(), // Sign in -> splash2 -> home
-            '/user_admin': (context) => const UserAdminPage(),
+            // For pages that now obtain theme from Provider, we instantiate them without extra parameters.
+            '/friends': (context) => const FeaturedPage(),
+            '/splash': (context) => SplashScreen(),
+            '/splash2': (context) => Splash2(),
+            // Uncomment and adjust the following if needed:
+            // '/user_admin': (context) => const UserAdminPage(),
             '/login': (context) => LoginPage(
                   themeProvider:
                       Provider.of<ThemeProvider>(context, listen: false),
                 ),
             '/review': (context) {
-              final themeProvider = Provider.of<ThemeProvider>(context);
               return review.StoresPage(
                 toggleTheme: themeProvider.toggleTheme,
                 isDarkMode: themeProvider.isDarkMode,
               );
             },
-           
             '/splash3': (context) => const SplashScreen(),
             '/notifications': (context) {
-              final themeProvider = Provider.of<ThemeProvider>(context);
               return notifications.NotificationsPage(
                 toggleTheme: themeProvider.toggleTheme,
                 isDarkMode: themeProvider.isDarkMode,
               );
             },
             '/profile': (context) {
-              final themeProvider = Provider.of<ThemeProvider>(context);
               return ProfilePage(
                 toggleTheme: themeProvider.toggleTheme,
-                isDarkMode: themeProvider.isDarkMode, username: '', email: '',
+                isDarkMode: themeProvider.isDarkMode,
+                username: '', // Supply actual username as needed
+                email: '', // Supply actual email as needed
               );
             },
-            // Add other routes here if needed
           },
           onGenerateRoute: (settings) {
-            // Check if we're going to '/main'
             if (settings.name == '/main') {
-              // Return a PageRouteBuilder with zero-duration transition:
               return PageRouteBuilder(
                 pageBuilder: (context, animation, secondaryAnimation) {
-                  // We can still access your theme provider, if needed:
-                  final themeProvider =
-                      Provider.of<ThemeProvider>(context, listen: false);
                   return HomeWithProgress(
                     isDarkMode: themeProvider.isDarkMode,
                     toggleTheme: themeProvider.toggleTheme,
@@ -148,9 +117,10 @@ class _MyAppState extends State<MyApp> {
                 reverseTransitionDuration: Duration.zero,
               );
             }
-            return null; // Let Flutter use the default behavior for other named routes
+            return null; // Use default behavior for other routes.
           },
           debugShowCheckedModeBanner: false,
+          // Set home to the main page as fallback.
           home: HomeWithProgress(
             isDarkMode: themeProvider.isDarkMode,
             toggleTheme: themeProvider.toggleTheme,

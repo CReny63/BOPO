@@ -4,7 +4,7 @@ import 'package:test/services/theme_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AppBarContent extends StatelessWidget {
-  const AppBarContent({Key? key}) : super(key: key);
+  const AppBarContent({Key? key, required VoidCallback toggleTheme, required bool isDarkMode}) : super(key: key);
 
   // Opens a bottom sheet for support (Q&A + email support)
   void _openSupport(BuildContext context) {

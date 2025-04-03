@@ -1,22 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:test/services/theme_provider.dart'; // Adjust the path as needed
 import 'package:test/widgets/app_bar_content.dart';
 
 class ProfilePage extends StatelessWidget {
-  final VoidCallback toggleTheme;
-  final bool isDarkMode;
   final String username;
   final String email;
   // The password is not displayed in plain text – using a masked value.
   final String maskedPassword;
 
   const ProfilePage({
-    super.key,
-    required this.toggleTheme,
-    required this.isDarkMode,
+    Key? key,
     required this.username,
     required this.email,
-    this.maskedPassword = '********',
-  });
+    this.maskedPassword = '********', required bool isDarkMode, required void Function() toggleTheme,
+  }) : super(key: key);
 
   // Shows the Manage Account dialog with user details and a reset password button.
   void _showManageAccountDialog(BuildContext context) {
@@ -123,6 +121,8 @@ class ProfilePage extends StatelessWidget {
 
   // Build the Settings tab.
   Widget _buildSettingsTab(BuildContext context) {
+    // Obtain the theme provider to get current theme values.
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return ListView(
       children: [
         _buildListTile(
@@ -140,10 +140,10 @@ class ProfilePage extends StatelessWidget {
           },
         ),
         _buildListTile(
-          isDarkMode ? 'Light Mode' : 'Dark Mode',
-          isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
-          isDarkMode ? Icons.wb_sunny : Icons.dark_mode,
-          toggleTheme,
+          themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
+          themeProvider.isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
+          themeProvider.isDarkMode ? Icons.wb_sunny : Icons.dark_mode,
+          themeProvider.toggleTheme,
         ),
         _buildListTile(
           'Logout',
@@ -172,10 +172,15 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Obtain theme values from ThemeProvider.
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: const AppBarContent(),
+        child: AppBarContent(
+          toggleTheme: themeProvider.toggleTheme,
+          isDarkMode: themeProvider.isDarkMode,
+        ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(

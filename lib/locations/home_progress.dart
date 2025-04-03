@@ -10,14 +10,14 @@ import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
 import 'package:test/locations/geolocator.dart';
 import 'package:test/locations/nearby_stores.dart';
-import 'package:test/services/theme_provider.dart';
-//import 'package:test/services/theme.dart';
+import 'package:test/models/store_details.dart';
+import 'package:test/services/theme_provider.dart';  // Your ThemeProvider
 import 'package:test/widgets/Greeting.dart';
 import 'package:test/widgets/app_bar_content.dart';
-import 'package:test/widgets/missionScreen.dart';
+//import 'package:test/widgets/missionScreen.dart';
 import 'package:test/widgets/promo.dart';
 import 'package:test/widgets/social_media.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+//import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeWithProgress extends StatefulWidget {
   final bool isDarkMode;
@@ -170,13 +170,19 @@ class HomeWithProgressState extends State<HomeWithProgress> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtain theme values from ThemeProvider.
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     if (_lastKnownPosition == null) {
       return WillPopScope(
         onWillPop: () async => false,
         child: Scaffold(
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(75),
-            child: const AppBarContent(),
+            child: AppBarContent(
+              toggleTheme: themeProvider.toggleTheme,
+              isDarkMode: themeProvider.isDarkMode,
+            ),
           ),
           body: const Center(child: CircularProgressIndicator()),
         ),
@@ -191,7 +197,10 @@ class HomeWithProgressState extends State<HomeWithProgress> {
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
-          child: const AppBarContent(),
+          child: AppBarContent(
+            toggleTheme: themeProvider.toggleTheme,
+            isDarkMode: themeProvider.isDarkMode,
+          ),
         ),
         body: CustomRefreshIndicator(
           onRefresh: _handleRefresh,
@@ -259,23 +268,17 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             ),
           ),
         ),
-        
         floatingActionButton: FloatingActionButton(
-          
           onPressed: () {
             if (selectedStore != null) {
-              final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => MissionsScreen(
-                    scannedStoreIds: scannedStoreIds,
+                  builder: (_) => StoreDetailsScreen(
+                    store: selectedStore!,
+                    userPosition: _lastKnownPosition!,
                     userId: FirebaseAuth.instance.currentUser?.uid ?? 'defaultUserId',
-                    storeId: selectedStore!.id,
-                    storeLatitude: selectedStore!.latitude,
-                    storeLongitude: selectedStore!.longitude,
-                    storeCity: selectedStore!.city, 
-                    themeProvider: themeProvider,
+                    // Pass themeProvider if needed
                   ),
                 ),
               );
@@ -310,7 +313,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           ),
           IconButton(
             icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-           onPressed: () => Navigator.pushNamed(context, '/friends'),
+            onPressed: () => Navigator.pushNamed(context, '/friends'),
             tooltip: 'Friends',
           ),
           IconButton(

@@ -5,18 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/models/store_details.dart';
+import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 class StoresPage extends StatefulWidget {
-  final VoidCallback toggleTheme;
-  final bool isDarkMode;
-
-  const StoresPage({
-    super.key,
-    required this.toggleTheme,
-    required this.isDarkMode,
-  });
+  const StoresPage({Key? key, required void Function() toggleTheme, required bool isDarkMode}) : super(key: key);
 
   @override
   _StoresPageState createState() => _StoresPageState();
@@ -58,26 +53,34 @@ class _StoresPageState extends State<StoresPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtain theme values from ThemeProvider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     // Show a loader until we have the user's location.
     if (userPosition == null) {
       return Scaffold(
-        appBar: const PreferredSize(
-          preferredSize: Size.fromHeight(75),
-          child: AppBarContent(),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(75),
+          child: AppBarContent(
+            toggleTheme: themeProvider.toggleTheme,
+            isDarkMode: themeProvider.isDarkMode,
+          ),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: const PreferredSize(
-        preferredSize: Size.fromHeight(75),
-        child: AppBarContent(),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(75),
+        child: AppBarContent(
+          toggleTheme: themeProvider.toggleTheme,
+          isDarkMode: themeProvider.isDarkMode,
+        ),
       ),
       body: CustomRefreshIndicator(
         onRefresh: _handleRefresh,
-        builder:
-            (BuildContext context, Widget child, IndicatorController controller) {
+        builder: (BuildContext context, Widget child, IndicatorController controller) {
           return Stack(
             alignment: Alignment.topCenter,
             children: [
@@ -118,16 +121,13 @@ class _StoresPageState extends State<StoresPage> {
             final dynamic decoded = snapshot.data!.snapshot.value;
             List<BobaStore> storeList = [];
             if (decoded is Map) {
-              final Map<String, dynamic> cities =
-                  Map<String, dynamic>.from(decoded);
+              final Map<String, dynamic> cities = Map<String, dynamic>.from(decoded);
               cities.forEach((cityName, cityData) {
                 if (cityData is Map) {
-                  final Map<String, dynamic> storesMap =
-                      Map<String, dynamic>.from(cityData);
+                  final Map<String, dynamic> storesMap = Map<String, dynamic>.from(cityData);
                   storesMap.forEach((storeKey, storeData) {
                     if (storeData is Map && storeData.containsKey('name')) {
-                      final Map<String, dynamic> storeMap =
-                          Map<String, dynamic>.from(storeData);
+                      final Map<String, dynamic> storeMap = Map<String, dynamic>.from(storeData);
                       storeMap['city'] = cityName;
                       BobaStore store = BobaStore.fromJson(storeKey, storeMap);
                       storeList.add(store);
@@ -175,7 +175,7 @@ class _StoresPageState extends State<StoresPage> {
                   child: StoreCard(
                     store: store,
                     isFavorite: favoriteStoreIds.contains(store.id),
-                    isDarkMode: widget.isDarkMode,
+                    isDarkMode: themeProvider.isDarkMode,
                     userPosition: userPosition!,
                     onFavoriteToggle: () {
                       setState(() {
@@ -193,8 +193,7 @@ class _StoresPageState extends State<StoresPage> {
                           builder: (_) => StoreDetailsScreen(
                             store: store,
                             userPosition: userPosition!,
-                            userId: FirebaseAuth.instance.currentUser?.uid ??
-                                'defaultUserId',
+                            userId: FirebaseAuth.instance.currentUser?.uid ?? 'defaultUserId',
                           ),
                         ),
                       );
@@ -243,7 +242,7 @@ class _StoresPageState extends State<StoresPage> {
   }
 }
 
-/// A separate widget for displaying each store card.
+/// A widget for displaying each store card.
 class StoreCard extends StatelessWidget {
   final BobaStore store;
   final bool isFavorite;
@@ -264,7 +263,6 @@ class StoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap the store image in a Hero for a smooth transition.
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       elevation: 2,
@@ -314,8 +312,7 @@ class StoreCard extends StatelessWidget {
               builder: (context, snapshot) {
                 int userVisits = 0;
                 if (snapshot.hasData && snapshot.data!.value != null) {
-                  userVisits =
-                      int.tryParse(snapshot.data!.value.toString()) ?? 0;
+                  userVisits = int.tryParse(snapshot.data!.value.toString()) ?? 0;
                 }
                 return Text(
                   "Your Visits: $userVisits",
@@ -338,8 +335,7 @@ class StoreCard extends StatelessWidget {
   }
 }
 
-/// A widget that adds a fade and slide animation to its child.
-/// The delay is staggered based on the provided index.
+/// A widget that adds fade and slide animation to its child.
 class AnimatedStoreCard extends StatefulWidget {
   final Widget child;
   final int index;

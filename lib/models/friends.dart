@@ -1,210 +1,199 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:test/services/theme_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+
+import 'package:test/locations/boba_store.dart';
+import 'package:test/locations/fetch_stores.dart';
 import 'package:test/widgets/app_bar_content.dart';
+//import 'package:test/themeprovide.dart'; // your ThemeProvider file
 
 class FeaturedPage extends StatefulWidget {
-  final VoidCallback toggleTheme;
-  final bool isDarkMode;
-
-  const FeaturedPage({
-    Key? key,
-    required this.toggleTheme,
-    required this.isDarkMode,
-  }) : super(key: key);
+  const FeaturedPage({Key? key}) : super(key: key);
 
   @override
   _FeaturedPageState createState() => _FeaturedPageState();
 }
 
 class _FeaturedPageState extends State<FeaturedPage> {
-  // List of featured items using asset images.
-  // Each item has a unique 'id' to track daily votes.
-  final List<Map<String, dynamic>> featuredItems = [
-    {
-      'id': 'boba1',
-      'imagePath': 'assets/sharetea_featured.png',
-      'caption': 'New Drink: Matcha Bliss',
-      'likes': 0,
-      'dislikes': 0,
-    },
-    {
-      'id': 'boba2',
-      'imagePath': 'assets/dingtea_featured.png',
-      'caption': 'Trending: Wintermelon',
-      'likes': 0,
-      'dislikes': 0,
-    },
-    {
-      'id': 'boba3',
-      'imagePath': 'assets/teaamo_featured.png',
-      'caption': 'Trending: Matcha Strawberry',
-      'likes': 0,
-      'dislikes': 0,
-    },
-    // Add more featured items as needed.
-  ];
-
-  late String _today;
+  final StoreService _storeService = StoreService();
+  List<BobaStore> _nearbyStores = [];
+  Position? _currentPosition;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _today = _getToday();
+    _getUserLocation().then((_) {
+      _fetchNearbyStores();
+    });
   }
 
-  // Returns a simple date string (e.g., "2025-03-28")
-  String _getToday() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month}-${now.day}';
-  }
-
-  // Handles voting for an item.
-  // voteType is either 'like' or 'dislike'
-  Future<void> _voteItem(int index, String voteType) async {
-    final prefs = await SharedPreferences.getInstance();
-    final item = featuredItems[index];
-    final key = 'vote_${item['id']}';
-    String? storedValue = prefs.getString(key);
-
-    String? storedVote;
-    String storedDate = '';
-
-    if (storedValue != null) {
-      // Stored format: "vote|date" (e.g., "like|2025-03-28")
-      final parts = storedValue.split('|');
-      if (parts.length == 2) {
-        storedVote = parts[0];
-        storedDate = parts[1];
-      }
-    }
-
-    // Check if a vote was cast today
-    if (storedDate == _today) {
-      // If the same vote is tapped again, do nothing.
-      if (storedVote == voteType) {
-        return;
-      } else {
-        // User is switching vote: update the counts accordingly.
-        setState(() {
-          if (voteType == 'like') {
-            if (item['dislikes'] > 0) item['dislikes']--;
-            item['likes']++;
-          } else if (voteType == 'dislike') {
-            if (item['likes'] > 0) item['likes']--;
-            item['dislikes']++;
-          }
-        });
-        await prefs.setString(key, '$voteType|$_today');
-      }
-    } else {
-      // No vote for today: register the new vote.
+  Future<void> _getUserLocation() async {
+    try {
+      Position pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       setState(() {
-        if (voteType == 'like') {
-          item['likes']++;
-        } else if (voteType == 'dislike') {
-          item['dislikes']++;
-        }
+        _currentPosition = pos;
       });
-      await prefs.setString(key, '$voteType|$_today');
+    } catch (e) {
+      debugPrint("Error fetching user location: $e");
+    }
+  }
+
+  Future<void> _fetchNearbyStores() async {
+    if (_currentPosition == null) return;
+    // Fetch nearby stores using your custom service.
+    List<BobaStore> stores = await _storeService.fetchNearbyStores(
+      latitude: _currentPosition!.latitude,
+      longitude: _currentPosition!.longitude,
+      radiusInMeters: 5000,
+    );
+    setState(() {
+      _nearbyStores = stores;
+      _isLoading = false;
+    });
+  }
+
+  // Future<void> _refreshStores() async {
+  //   setState(() {
+  //     _isLoading = true;
+  //   });
+  //   await _getUserLocation();
+  //   await _fetchNearbyStores();
+  // }
+
+  /// Helper function to construct the asset image path.
+  String _getAssetPath(String imageName) {
+    String path = imageName;
+    if (!path.startsWith('assets/')) {
+      path = 'assets/$path';
+    }
+    if (!path.endsWith('.png')) {
+      path = '$path.png';
+    }
+    return path;
+  }
+
+  /// Launches Google Maps for the given address.
+  Future<void> _launchMaps(String address) async {
+    final query = Uri.encodeComponent(address);
+    final url = 'https://www.google.com/maps/search/?api=1&query=$query';
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      debugPrint("Could not launch Maps for address: $address");
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Obtain the theme values from ThemeProvider.
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      // Reuse your existing top app bar for consistency.
+      // Use your original AppBarContent with the three-line menu and light/dark toggle.
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: const AppBarContent(),
-      ),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: CarouselSlider.builder(
-        itemCount: featuredItems.length,
-        itemBuilder: (context, index, realIndex) {
-          final item = featuredItems[index];
-          return Card(
-            elevation: 4,
-            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Stack(
-              children: [
-                // Display asset image.
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    item['imagePath'],
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                  ),
-                ),
-                // Caption overlay.
-                Positioned(
-                  bottom: 70,
-                  left: 10,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    color: Colors.black54,
-                    child: Text(
-                      item['caption'],
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-                // Like button and count.
-                Positioned(
-                  bottom: 10,
-                  left: 10,
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.thumb_up, color: Colors.white),
-                        onPressed: () => _voteItem(index, 'like'),
-                      ),
-                      Text(
-                        '${item['likes']}',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-                // Dislike button and count.
-                Positioned(
-                  bottom: 10,
-                  right: 10,
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.thumb_down, color: Colors.white),
-                        onPressed: () => _voteItem(index, 'dislike'),
-                      ),
-                      Text(
-                        '${item['dislikes']}',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        options: CarouselOptions(
-          height: MediaQuery.of(context).size.height * 0.75,
-          enlargeCenterPage: true,
-          enableInfiniteScroll: false,
-          autoPlay: true,
+        child: AppBarContent(
+          toggleTheme: themeProvider.toggleTheme,
+          isDarkMode: themeProvider.isDarkMode,
         ),
       ),
-      // Reuse your existing bottom navigation.
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.brown),
+              ),
+            )
+          : _nearbyStores.isEmpty
+              ? Center(child: Text("No nearby stores found."))
+              : CarouselSlider.builder(
+                  itemCount: _nearbyStores.length,
+                  itemBuilder: (context, index, realIndex) {
+                    final store = _nearbyStores[index];
+                    // Build the asset image path for the drink image.
+                    final imagePath = _getAssetPath(store.imageName);
+                    // Construct the store address.
+                    final address =
+                        "${store.address}, ${store.city}, ${store.state}";
+                    // Use store.name as a placeholder for the drink name.
+                    final drinkName = store.name;
+                    return Card(
+                      elevation: 4,
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Stack(
+                        children: [
+                          // Background: Drink image.
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.asset(
+                              imagePath,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                            ),
+                          ),
+                          // Top overlay: Drink Name in larger font.
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              color: Colors.black54,
+                              child: Text(
+                                drinkName,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          // Bottom overlay: Store Address (clickable to open Maps).
+                          Positioned(
+                            bottom: 10,
+                            left: 10,
+                            right: 10,
+                            child: InkWell(
+                              onTap: () => _launchMaps(address),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                color: Colors.black54,
+                                child: Text(
+                                  address,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  options: CarouselOptions(
+                    height: MediaQuery.of(context).size.height * 0.75,
+                    enlargeCenterPage: true,
+                    enableInfiniteScroll: false,
+                    autoPlay: true,
+                  ),
+                ),
       bottomNavigationBar: BottomAppBar(
         color: Theme.of(context).colorScheme.surface,
         child: Row(
@@ -213,11 +202,11 @@ class _FeaturedPageState extends State<FeaturedPage> {
             IconButton(
               icon: const Icon(Icons.star_outline, size: 21.0),
               tooltip: 'Featured',
-              onPressed: () => Navigator.pushNamed(context, '/featured'),
+              onPressed: () => Navigator.pushNamed(context, '/review'),
             ),
             IconButton(
               icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-              tooltip: 'Friends',
+              tooltip: 'QR Code',
               onPressed: () => Navigator.pushNamed(context, '/friends'),
             ),
             IconButton(

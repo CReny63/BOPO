@@ -1,22 +1,72 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http; // For API calls
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
+import 'package:test/services/theme_provider.dart'; // Your ThemeProvider
 import 'package:test/widgets/app_bar_content.dart';
+
+/// Helper function to fetch accurate coordinates using Google Place ID.
+Future<LatLng> fetchAccurateLocation(String placeId) async {
+  final url = 'https://maps.googleapis.com/maps/api/place/details/json'
+      '?place_id=$placeId&fields=geometry&key=AIzaSyA31WEvdpAzW1hBlkYYBwQFoUn1NIywCHg';
+  final response = await http.get(Uri.parse(url));
+  if (response.statusCode == 200) {
+    final jsonResponse = jsonDecode(response.body);
+    final location = jsonResponse['result']['geometry']['location'];
+    return LatLng(location['lat'], location['lng']);
+  }
+  throw Exception('Failed to fetch location');
+}
+
+/// Helper function to cache the fetched accurate location (valid for 1 hour).
+Future<LatLng> getCachedAccurateLocation(String placeId) async {
+  final prefs = await SharedPreferences.getInstance();
+  final cacheKey = "accurateLocation_$placeId";
+  final cacheTimestampKey = "accurateLocationTimestamp_$placeId";
+  final cachedLocation = prefs.getString(cacheKey);
+  final cachedTimestamp = prefs.getInt(cacheTimestampKey);
+
+  // Validity period: 1 hour (3600 seconds)
+  const int validityPeriod = 3600;
+  final currentTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+  if (cachedLocation != null &&
+      cachedTimestamp != null &&
+      (currentTimestamp - cachedTimestamp) < validityPeriod) {
+    final parts = cachedLocation.split(",");
+    if (parts.length == 2) {
+      final lat = double.tryParse(parts[0]);
+      final lng = double.tryParse(parts[1]);
+      if (lat != null && lng != null) {
+        return LatLng(lat, lng);
+      }
+    }
+  }
+
+  // If no valid cache exists, fetch new data.
+  final accurateLocation = await fetchAccurateLocation(placeId);
+  await prefs.setString(cacheKey, "${accurateLocation.latitude},${accurateLocation.longitude}");
+  await prefs.setInt(cacheTimestampKey, currentTimestamp);
+  return accurateLocation;
+}
 
 class NotificationsPage extends StatefulWidget {
   final VoidCallback toggleTheme;
   final bool isDarkMode;
 
   const NotificationsPage({
-    super.key,
+    Key? key,
     required this.toggleTheme,
     required this.isDarkMode,
-  });
+  }) : super(key: key);
 
   @override
   _NotificationsPageState createState() => _NotificationsPageState();
@@ -27,7 +77,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
   final Set<Marker> _markers = {};
   GoogleMapController? _mapController;
   BitmapDescriptor? bobaMarkerIcon;
-  String? _mapStyle;
   LatLng? _currentLocation;
   bool _isLoading = true;
 
@@ -35,7 +84,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
   void initState() {
     super.initState();
     _loadCustomMarker();
-    _loadMapStyle();
     _getUserLocation().then((_) {
       _fetchStoresUsingAlgorithm();
     });
@@ -47,12 +95,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
-  // Helper function to load and resize a marker asset.
+  /// Loads and resizes a marker asset.
   Future<BitmapDescriptor> getResizedMarker(String assetPath, int width) async {
     ByteData data = await rootBundle.load(assetPath);
     ui.Codec codec = await ui.instantiateImageCodec(
       data.buffer.asUint8List(),
-      targetWidth: width, // Set the desired width in pixels.
+      targetWidth: width,
     );
     ui.FrameInfo fi = await codec.getNextFrame();
     final ByteData? byteData =
@@ -61,15 +109,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _loadCustomMarker() async {
-    // Adjust the width parameter to control the marker size.
     BitmapDescriptor icon = await getResizedMarker('assets/capy_boba.png', 50);
     setState(() {
       bobaMarkerIcon = icon;
     });
-  }
-
-  Future<void> _loadMapStyle() async {
-    // Optionally load a custom map style if needed.
   }
 
   Future<void> _getUserLocation() async {
@@ -79,7 +122,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
       setState(() {
         _currentLocation = LatLng(pos.latitude, pos.longitude);
       });
-      // If the map is already created, move the camera.
       if (_mapController != null && _currentLocation != null) {
         _mapController!.animateCamera(
           CameraUpdate.newCameraPosition(
@@ -102,12 +144,28 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
     Set<Marker> newMarkers = {};
     for (BobaStore store in stores) {
+      // Start with the approximate coordinates.
+      LatLng markerPosition = LatLng(store.latitude, store.longitude);
+
+      // If a valid Google Place ID exists, fetch its accurate coordinate.
+      if (store.googlePlaceId.isNotEmpty) {
+        try {
+          LatLng accurateLocation = await getCachedAccurateLocation(store.googlePlaceId);
+          markerPosition = accurateLocation;
+          debugPrint("Accurate location for ${store.name}: $markerPosition");
+        } catch (e) {
+          debugPrint("Error fetching accurate location for ${store.name}: $e");
+        }
+      }
+
       newMarkers.add(
         Marker(
           markerId: MarkerId(store.id),
-          position: LatLng(store.latitude, store.longitude),
+          position: markerPosition,
           infoWindow: InfoWindow(title: store.name),
           icon: bobaMarkerIcon ?? BitmapDescriptor.defaultMarker,
+          // Adjust anchor so the bottom center of the marker image aligns with the location.
+          anchor: const Offset(0.5, 1.0),
         ),
       );
     }
@@ -118,12 +176,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
+  /// Clears the cached location data and refreshes the markers.
+  Future<void> _clearCacheAndRefresh() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+    for (String key in keys) {
+      if (key.startsWith("accurateLocation_") || key.startsWith("accurateLocationTimestamp_")) {
+        await prefs.remove(key);
+      }
+    }
+    await _fetchStoresUsingAlgorithm();
+  }
+
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
-    if (_mapStyle != null) {
-      _mapController!.setMapStyle(_mapStyle);
-    }
-    // Center the map on the user's location if available.
     if (_currentLocation != null) {
       _mapController!.animateCamera(
         CameraUpdate.newCameraPosition(
@@ -135,11 +201,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtain the theme provider from context.
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     if (_isLoading) {
       return Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
-          child: const AppBarContent(),
+          child: AppBarContent(
+            toggleTheme: themeProvider.toggleTheme,
+            isDarkMode: themeProvider.isDarkMode,
+          ),
         ),
         backgroundColor: const Color.fromARGB(255, 228, 197, 171),
         body: Container(
@@ -171,7 +243,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
       return Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
-          child: const AppBarContent(),
+          child: AppBarContent(
+            toggleTheme: themeProvider.toggleTheme,
+            isDarkMode: themeProvider.isDarkMode,
+          ),
         ),
         backgroundColor: const Color.fromARGB(255, 228, 197, 171),
         body: GoogleMap(
