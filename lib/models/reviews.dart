@@ -212,12 +212,12 @@ class _StoresPageState extends State<StoresPage> {
           children: <Widget>[
             IconButton(
               icon: const Icon(Icons.star_outline, size: 21.0),
-              tooltip: 'Reviews',
+              tooltip: 'Visits',
               onPressed: () => Navigator.pushNamed(context, '/reviews'),
             ),
             IconButton(
-              icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-              tooltip: 'Friends',
+              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
+              tooltip: 'Featured',
               onPressed: () => Navigator.pushNamed(context, '/friends'),
             ),
             IconButton(
@@ -227,7 +227,7 @@ class _StoresPageState extends State<StoresPage> {
             ),
             IconButton(
               icon: const Icon(Icons.map_outlined, size: 21.0),
-              tooltip: 'Notifications',
+              tooltip: 'Map',
               onPressed: () => Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(

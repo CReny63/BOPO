@@ -201,12 +201,12 @@ class _FeaturedPageState extends State<FeaturedPage> {
           children: <Widget>[
             IconButton(
               icon: const Icon(Icons.star_outline, size: 21.0),
-              tooltip: 'Featured',
+              tooltip: 'Visits',
               onPressed: () => Navigator.pushNamed(context, '/review'),
             ),
             IconButton(
-              icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-              tooltip: 'QR Code',
+              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
+              tooltip: 'Featured',
               onPressed: () => Navigator.pushNamed(context, '/friends'),
             ),
             IconButton(
@@ -216,7 +216,7 @@ class _FeaturedPageState extends State<FeaturedPage> {
             ),
             IconButton(
               icon: const Icon(Icons.map_outlined, size: 21.0),
-              tooltip: 'Notifications',
+              tooltip: 'Map',
               onPressed: () => Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(

@@ -14,7 +14,7 @@ import 'package:test/models/store_details.dart';
 import 'package:test/services/theme_provider.dart';  // Your ThemeProvider
 import 'package:test/widgets/Greeting.dart';
 import 'package:test/widgets/app_bar_content.dart';
-//import 'package:test/widgets/missionScreen.dart';
+import 'package:test/widgets/MissionScreen.dart';
 import 'package:test/widgets/promo.dart';
 import 'package:test/widgets/social_media.dart';
 //import 'package:cached_network_image/cached_network_image.dart';
@@ -269,28 +269,34 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           ),
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            if (selectedStore != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => StoreDetailsScreen(
-                    store: selectedStore!,
-                    userPosition: _lastKnownPosition!,
-                    userId: FirebaseAuth.instance.currentUser?.uid ?? 'defaultUserId',
-                    // Pass themeProvider if needed
-                  ),
-                ),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No store selected.')),
-              );
-            }
-          },
-          backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
-          child: const Icon(Icons.assignment),
+  onPressed: () {
+    if (selectedStore != null) {
+      // Obtain the themeProvider from the context.
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MissionsScreen(
+            scannedStoreIds: scannedStoreIds,
+            userId: FirebaseAuth.instance.currentUser?.uid ?? 'defaultUserId',
+            storeId: selectedStore!.id,
+            storeLatitude: selectedStore!.latitude,
+            storeLongitude: selectedStore!.longitude,
+            storeCity: selectedStore!.city,
+            themeProvider: themeProvider,
+          ),
         ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No store selected.')),
+      );
+    }
+  },
+  backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
+  child: const Icon(Icons.assignment),
+),
+
         bottomNavigationBar: buildBottomNavBar(context),
       ),
     );
@@ -309,12 +315,12 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             onPressed: () {
               Navigator.pushNamed(context, '/review');
             },
-            tooltip: 'Favorites',
+            tooltip: 'Visits',
           ),
           IconButton(
-            icon: const Icon(Icons.people_alt_outlined, size: 21.0),
+            icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
             onPressed: () => Navigator.pushNamed(context, '/friends'),
-            tooltip: 'Friends',
+            tooltip: 'Featured',
           ),
           IconButton(
             icon: const Icon(Icons.home_outlined, size: 21.0),
@@ -326,7 +332,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             onPressed: () {
               Navigator.pushNamed(context, '/notifications');
             },
-            tooltip: 'Promotions',
+            tooltip: 'Map',
           ),
           IconButton(
             icon: const Icon(Icons.person_outline, size: 21.0),

@@ -119,6 +119,10 @@ flutter:
     - assets/sharetea_featured.png
     - assets/dingtea_featured.png
     - assets/teaamo_featured.png
+    - assets/the_boba_co.png
+    - assets/happy_lemon.png
+    - assets/vivi_bubble_tea.png
+    - assets/bobapop_tea_bar.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

@@ -109,7 +109,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _loadCustomMarker() async {
-    BitmapDescriptor icon = await getResizedMarker('assets/capy_boba.png', 50);
+    BitmapDescriptor icon = await getResizedMarker('assets/capy_boba.png', 85);
     setState(() {
       bobaMarkerIcon = icon;
     });
@@ -266,12 +266,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
             children: <Widget>[
               IconButton(
                 icon: const Icon(Icons.star_outline, size: 21.0),
-                tooltip: 'Reviews',
+                tooltip: 'Visits',
                 onPressed: () => Navigator.pushNamed(context, '/review'),
               ),
               IconButton(
-                icon: const Icon(Icons.people_alt_outlined, size: 21.0),
-                tooltip: 'QR Code',
+                icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
+                tooltip: 'Featured',
                 onPressed: () => Navigator.pushNamed(context, '/friends'),
               ),
               IconButton(
@@ -281,7 +281,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
               IconButton(
                 icon: const Icon(Icons.map_outlined, size: 21.0),
-                tooltip: 'Notifications',
+                tooltip: 'Map',
                 onPressed: () {}, // Already on this page.
               ),
               IconButton(
