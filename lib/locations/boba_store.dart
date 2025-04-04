@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 class BobaStore {
   final String name;
   final String imageName;
+  final String imagefeat; // New attribute for the featured image filename.
+  final String namefeat;  // New attribute for the featured name.
   final String qrData;
   final String id;
   final double latitude;
@@ -11,13 +13,15 @@ class BobaStore {
   final String city;
   final String state;
   final String zip;
-  final String googlePlaceId; // New field for the Google Place ID
+  final String googlePlaceId; // New field for the Google Place ID.
   int visits;
   bool isFavorite;
 
   BobaStore({
     required this.name,
     required this.imageName,
+    required this.imagefeat,
+    required this.namefeat,
     required this.qrData,
     required this.id,
     required this.latitude,
@@ -26,7 +30,7 @@ class BobaStore {
     required this.city,
     required this.state,
     required this.zip,
-    required this.googlePlaceId, // Required field in the constructor
+    required this.googlePlaceId,
     this.visits = 0,
     this.isFavorite = false,
   });
@@ -44,9 +48,12 @@ class BobaStore {
     return BobaStore(
       id: uniqueId,
       name: json['name'] ?? 'Unknown Name',
-      imageName: json.containsKey('imagename') && json['imagename'] != null
-          ? json['imagename']
-          : 'default_image',
+      imageName: (json['imagename'] != null) ? json['imagename'] : 'default_image',
+     imagefeat: (json['imagefeat'] != null && (json['imagefeat'] as String).trim().isNotEmpty)
+    ? json['imagefeat']
+    : 'default_featured',
+    
+      namefeat: (json['namefeat'] != null) ? json['namefeat'] : 'No Featured Name',
       qrData: json['qrdata'] ?? 'No QR Data',
       latitude: (json['lat'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['lng'] as num?)?.toDouble() ?? 0.0,
@@ -54,7 +61,7 @@ class BobaStore {
       city: cityName,
       state: json['state'] ?? 'Unknown State',
       zip: json['zip'] ?? '',
-      googlePlaceId: json['googlePlaceId'] ?? '', // Fetch from JSON or default to empty string
+      googlePlaceId: json['googlePlaceId'] ?? '',
       visits: json['visits'] != null ? json['visits'] as int : 0,
       isFavorite: json['isFavorite'] ?? false,
     );

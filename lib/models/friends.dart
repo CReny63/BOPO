@@ -5,11 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
-
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
 import 'package:test/widgets/app_bar_content.dart';
-//import 'package:test/themeprovide.dart'; // your ThemeProvider file
 
 class FeaturedPage extends StatefulWidget {
   const FeaturedPage({Key? key}) : super(key: key);
@@ -39,6 +37,7 @@ class _FeaturedPageState extends State<FeaturedPage> {
       setState(() {
         _currentPosition = pos;
       });
+      debugPrint("User position: $_currentPosition");
     } catch (e) {
       debugPrint("Error fetching user location: $e");
     }
@@ -46,35 +45,81 @@ class _FeaturedPageState extends State<FeaturedPage> {
 
   Future<void> _fetchNearbyStores() async {
     if (_currentPosition == null) return;
-    // Fetch nearby stores using your custom service.
-    List<BobaStore> stores = await _storeService.fetchNearbyStores(
-      latitude: _currentPosition!.latitude,
-      longitude: _currentPosition!.longitude,
-      radiusInMeters: 5000,
-    );
-    setState(() {
-      _nearbyStores = stores;
-      _isLoading = false;
-    });
+    try {
+      // Fetch all stores from your service.
+      List<BobaStore> stores = await _storeService.fetchNearbyStores(
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        radiusInMeters: 5000,
+      );
+      debugPrint("Fetched ${stores.length} stores from service.");
+
+      // Sort stores by distance (closest first).
+      stores.sort((a, b) {
+        double distanceA = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          a.latitude,
+          a.longitude,
+        );
+        double distanceB = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          b.latitude,
+          b.longitude,
+        );
+        return distanceA.compareTo(distanceB);
+      });
+
+      // First, collect unique stores by 'namefeat'.
+      List<BobaStore> uniqueStores = [];
+      Set<String> seenFeatured = {};
+      for (BobaStore store in stores) {
+        String feat = store.namefeat.trim();
+        if (feat.isNotEmpty && !seenFeatured.contains(feat)) {
+          uniqueStores.add(store);
+          seenFeatured.add(feat);
+          debugPrint("Added unique store ${store.id} with featured drink: '$feat'");
+        }
+      }
+      debugPrint("Unique featured stores count: ${uniqueStores.length}");
+
+      // If there are fewer than 8 unique items, add additional stores from sorted list.
+      if (uniqueStores.length < 8) {
+        for (BobaStore store in stores) {
+          if (!uniqueStores.contains(store)) {
+            uniqueStores.add(store);
+            if (uniqueStores.length >= 8) break;
+          }
+        }
+        debugPrint("Filled up to ${uniqueStores.length} stores after adding duplicates.");
+      }
+
+      // Limit to exactly 8 items if there are more.
+      if (uniqueStores.length > 8) {
+        uniqueStores = uniqueStores.sublist(0, 8);
+      }
+
+      setState(() {
+        _nearbyStores = uniqueStores;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Error fetching nearby stores: $e");
+    }
   }
 
-  // Future<void> _refreshStores() async {
-  //   setState(() {
-  //     _isLoading = true;
-  //   });
-  //   await _getUserLocation();
-  //   await _fetchNearbyStores();
-  // }
-
   /// Helper function to construct the asset image path.
-  String _getAssetPath(String imageName) {
-    String path = imageName;
+  String _getAssetPath(String imagefeat) {
+    String path = imagefeat;
+    debugPrint("Raw imagefeat: '$imagefeat'");
     if (!path.startsWith('assets/')) {
       path = 'assets/$path';
     }
     if (!path.endsWith('.png')) {
       path = '$path.png';
     }
+    debugPrint("Computed asset path: '$path'");
     return path;
   }
 
@@ -116,23 +161,30 @@ class _FeaturedPageState extends State<FeaturedPage> {
                   itemCount: _nearbyStores.length,
                   itemBuilder: (context, index, realIndex) {
                     final store = _nearbyStores[index];
-                    // Build the asset image path for the drink image.
-                    final imagePath = _getAssetPath(store.imageName);
-                    // Construct the store address.
-                    final address =
-                        "${store.address}, ${store.city}, ${store.state}";
-                    // Use store.name as a placeholder for the drink name.
+                    
+                    // Debug prints for each store.
+                    debugPrint("Building carousel item for store id: ${store.id}");
+                    debugPrint("Store imagefeat: '${store.imagefeat}'");
+                    debugPrint("Store namefeat: '${store.namefeat}'");
+                    
+                    // Use the new attribute imagefeat for the image.
+                    final imagePath = _getAssetPath(store.imagefeat);
+                    
+                    // Use the new attribute namefeat for the bottom overlay.
+                    final featuredName = store.namefeat;
+                    
+                    // Use store.name as the top overlay (e.g., drink name).
                     final drinkName = store.name;
+                    
                     return Card(
                       elevation: 4,
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 20),
+                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Stack(
                         children: [
-                          // Background: Drink image.
+                          // Background: Drink image from imagefeat.
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.asset(
@@ -162,18 +214,20 @@ class _FeaturedPageState extends State<FeaturedPage> {
                               ),
                             ),
                           ),
-                          // Bottom overlay: Store Address (clickable to open Maps).
+                          // Bottom overlay: Featured name (namefeat).
                           Positioned(
                             bottom: 10,
                             left: 10,
                             right: 10,
                             child: InkWell(
-                              onTap: () => _launchMaps(address),
+                              onTap: () {
+                                // Optionally, you could launch maps using another attribute.
+                              },
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 color: Colors.black54,
                                 child: Text(
-                                  address,
+                                  featuredName,
                                   style: Theme.of(context)
                                       .textTheme
                                       .titleMedium

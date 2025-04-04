@@ -58,13 +58,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _saveCredentials(String username, String password, String email) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', username);
-    await prefs.setString('password', password);
-    await prefs.setString('email', email);
-  }
-
   Future<void> _handleSignIn() async {
     final prefs = await SharedPreferences.getInstance();
     String? savedUsername = prefs.getString('username');
@@ -77,7 +70,8 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    if (usernameController.text == savedUsername && passwordController.text == savedPassword) {
+    if (usernameController.text == savedUsername &&
+        passwordController.text == savedPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sign In Successful!')),
       );
@@ -87,117 +81,6 @@ class _LoginPageState extends State<LoginPage> {
         const SnackBar(content: Text('Invalid username or password.')),
       );
     }
-  }
-
-  bool _validatePassword(String password) {
-    final passwordRegex = RegExp(r'^(?=.*[!@#$%^&*(),.?":{}|<>])(?=.*\d).{7,}$');
-    return passwordRegex.hasMatch(password);
-  }
-
-  void _showSignUpDialog() {
-    final TextEditingController signUpUsernameController = TextEditingController();
-    final TextEditingController signUpPasswordController = TextEditingController();
-    final TextEditingController confirmPasswordController = TextEditingController();
-    final TextEditingController emailController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(builder: (context, setStateDialog) {
-          return AlertDialog(
-            title: const Text("Sign Up"),
-            content: SingleChildScrollView(
-              child: Column(
-                children: [
-                  TextField(
-                    controller: signUpUsernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: signUpPasswordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: confirmPasswordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm Password',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (signUpUsernameController.text.isEmpty ||
-                      emailController.text.isEmpty ||
-                      signUpPasswordController.text.isEmpty ||
-                      confirmPasswordController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('All fields are required.')),
-                    );
-                    return;
-                  }
-                  if (!_validatePassword(signUpPasswordController.text)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Password must be at least 7 characters, include 1 digit and 1 special character.',
-                        ),
-                      ),
-                    );
-                    return;
-                  }
-                  if (signUpPasswordController.text != confirmPasswordController.text) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Passwords do not match.')),
-                    );
-                    return;
-                  }
-
-                  await _saveCredentials(
-                    signUpUsernameController.text,
-                    signUpPasswordController.text,
-                    emailController.text,
-                  );
-
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sign Up Successful!')),
-                  );
-
-                  Navigator.pushReplacementNamed(context, '/splash2');
-                },
-                child: const Text('Sign Up'),
-              ),
-            ],
-          );
-        });
-      },
-    );
   }
 
   void _showForgotPasswordScreen() {
@@ -213,8 +96,7 @@ class _LoginPageState extends State<LoginPage> {
       // Disable the Android back button functionality.
       onWillPop: () async => false,
       child: Scaffold(
-         backgroundColor: const Color.fromARGB(255, 228, 197, 171),
-        // Light brown themed AppBar with no back arrow.
+        backgroundColor: const Color.fromARGB(255, 228, 197, 171),
         appBar: AppBar(
           automaticallyImplyLeading: false,
           backgroundColor: const Color.fromARGB(255, 228, 197, 171),
@@ -227,7 +109,8 @@ class _LoginPageState extends State<LoginPage> {
           child: SingleChildScrollView(
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 60, horizontal: 16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -238,7 +121,8 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.brown.shade300, width: 1),
+                        border:
+                            Border.all(color: Colors.brown.shade300, width: 1),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.grey.withOpacity(0.3),
@@ -286,7 +170,8 @@ class _LoginPageState extends State<LoginPage> {
                       child: ElevatedButton(
                         onPressed: _handleSignIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                          backgroundColor:
+                              const Color.fromARGB(255, 255, 255, 255),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -294,7 +179,9 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: const Text(
                           'Sign In',
-                          style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: Color.fromARGB(255, 0, 0, 0)),
                         ),
                       ),
                     ),
@@ -303,9 +190,16 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(
                       width: 280,
                       child: ElevatedButton(
-                        onPressed: _showSignUpDialog,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const SignUpScreen()),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                          backgroundColor:
+                              const Color.fromARGB(255, 255, 255, 255),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -313,7 +207,9 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: const Text(
                           'Sign Up',
-                          style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: Color.fromARGB(255, 0, 0, 0)),
                         ),
                       ),
                     ),
@@ -326,20 +222,24 @@ class _LoginPageState extends State<LoginPage> {
                           showDialog(
                             context: context,
                             barrierDismissible: false,
-                            builder: (context) => const Center(child: CircularProgressIndicator()),
+                            builder: (context) =>
+                                const Center(child: CircularProgressIndicator()),
                           );
-                          UserCredential? userCredential = await signInWithGoogle();
+                          UserCredential? userCredential =
+                              await signInWithGoogle();
                           Navigator.of(context).pop();
                           if (userCredential != null) {
                             Navigator.pushReplacementNamed(context, '/splash2');
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Google Sign-In failed')),
+                              const SnackBar(
+                                  content: Text('Google Sign-In failed')),
                             );
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                          backgroundColor:
+                              const Color.fromARGB(255, 255, 255, 255),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -353,7 +253,9 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(width: 8),
                             const Text(
                               'Continue with Google',
-                              style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: Color.fromARGB(255, 0, 0, 0)),
                             ),
                           ],
                         ),
@@ -370,7 +272,147 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// --- ForgotPasswordScreen and ResetCodeScreen remain unchanged ---
+// New SignUpScreen as a separate white screen
+class SignUpScreen extends StatefulWidget {
+  const SignUpScreen({Key? key}) : super(key: key);
+
+  @override
+  _SignUpScreenState createState() => _SignUpScreenState();
+}
+
+class _SignUpScreenState extends State<SignUpScreen> {
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController emailController    = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
+
+  bool _validatePassword(String password) {
+    final passwordRegex = RegExp(r'^(?=.*[!@#$%^&*(),.?":{}|<>])(?=.*\d).{7,}$');
+    return passwordRegex.hasMatch(password);
+  }
+
+  Future<void> _saveCredentials(String username, String password, String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', username);
+    await prefs.setString('password', password);
+    await prefs.setString('email', email);
+  }
+
+  void _handleSignUp() async {
+    if (usernameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty ||
+        confirmPasswordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All fields are required.')),
+      );
+      return;
+    }
+
+    if (!_validatePassword(passwordController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be at least 7 characters, include 1 digit and 1 special character.'),
+        ),
+      );
+      return;
+    }
+
+    if (passwordController.text != confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match.')),
+      );
+      return;
+    }
+
+    await _saveCredentials(
+      usernameController.text,
+      passwordController.text,
+      emailController.text,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Sign Up Successful!')),
+    );
+
+    Navigator.pushReplacementNamed(context, '/splash2');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(""),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 1,
+        iconTheme: const IconThemeData(color: Colors.black),
+        titleTextStyle: const TextStyle(color: Colors.black, fontSize: 20),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              TextField(
+                controller: usernameController,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  border: UnderlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: UnderlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: UnderlineInputBorder(),
+                  helperText: 'At least 7 characters, 1 digit & 1 special character',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm Password',
+                  border: UnderlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _handleSignUp,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                  ),
+                  child: const Text(
+                    'Sign Up',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Modified ForgotPasswordScreen using username to recover password via email
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
 
@@ -379,20 +421,41 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  void _sendResetCode() {
-    if (_formKey.currentState!.validate()) {
-      int code = Random().nextInt(90000) + 10000;
-      print("Reset code for ${emailController.text.trim()}: $code");
+  void _sendResetEmail() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
+    final prefs = await SharedPreferences.getInstance();
+    String? savedUsername = prefs.getString('username');
+    String? savedEmail = prefs.getString('email');
+
+    if (savedUsername == null || savedEmail == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reset code sent to your email.')),
+        const SnackBar(content: Text('No user found. Please sign up first.')),
       );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => ResetCodeScreen(expectedCode: code)),
+      return;
+    }
+
+    if (usernameController.text.trim() != savedUsername) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username not found.')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: savedEmail);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password reset email sent. Check your email.')),
+      );
+      Navigator.pop(context); // Navigate back after sending the email.
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error sending password reset email.')),
       );
     }
   }
@@ -415,27 +478,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const SizedBox(height: 30),
               const Text(
-                "Enter your email address to receive a 5-digit reset code.",
+                "Enter your username to recover your password via your registered email.",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 20),
               TextFormField(
-                controller: emailController,
+                controller: usernameController,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Username',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty || !value.contains('@')) {
-                    return 'Please enter a valid email address';
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your username';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _sendResetCode,
+                onPressed: _sendResetEmail,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.brown.shade600,
                   padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
@@ -444,88 +507,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ),
                 child: const Text(
-                  'Send Code',
+                  'Send Reset Email',
                   style: TextStyle(fontSize: 16, color: Colors.white),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class ResetCodeScreen extends StatefulWidget {
-  final int expectedCode;
-
-  const ResetCodeScreen({Key? key, required this.expectedCode}) : super(key: key);
-
-  @override
-  _ResetCodeScreenState createState() => _ResetCodeScreenState();
-}
-
-class _ResetCodeScreenState extends State<ResetCodeScreen> {
-  final TextEditingController codeController = TextEditingController();
-
-  void _verifyCode() {
-    if (codeController.text.trim() == widget.expectedCode.toString()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reset Successful!')),
-      );
-      Navigator.pushReplacementNamed(context, '/splash2');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect code. Please try again.')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Enter Reset Code"),
-        centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 228, 197, 171),
-        elevation: 0,
-      ),
-      body: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-            const Text(
-              "Enter the 5-digit code sent to your email.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: codeController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Reset Code',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _verifyCode,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.brown.shade600,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'Verify Code',
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
-          ],
         ),
       ),
     );

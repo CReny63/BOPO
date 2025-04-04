@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:test/services/theme_provider.dart'; // Your ThemeProvider
+import 'package:test/services/theme_provider.dart';
 
 class Mission {
   final String title;
@@ -18,8 +18,7 @@ class Mission {
   });
 }
 
-/// A custom segmented progress indicator that divides available width equally.
-/// It shows a row of segments that fill green as progress is made.
+/// A segmented progress indicator that fills segments as progress is made.
 class SegmentedProgressIndicator extends StatelessWidget {
   final int current;
   final int goal;
@@ -42,10 +41,10 @@ class SegmentedProgressIndicator extends StatelessWidget {
       for (int i = 0; i < goal; i++) {
         segments.add(Container(
           width: segmentWidth,
-          height: 12.0,
+          height: 8.0,
           decoration: BoxDecoration(
             color: i < current ? Colors.green : Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(6.0),
+            borderRadius: BorderRadius.circular(4.0),
           ),
         ));
         if (i < goal - 1) {
@@ -57,6 +56,47 @@ class SegmentedProgressIndicator extends StatelessWidget {
         children: segments,
       );
     });
+  }
+}
+
+/// A badge sticker widget for displaying a visited store.
+class BadgeSticker extends StatelessWidget {
+  final String storeId;
+
+  const BadgeSticker({Key? key, required this.storeId}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(2, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.store, size: 32, color: Theme.of(context).primaryColor),
+          const SizedBox(height: 4),
+          Text(
+            storeId.length >= 4 ? storeId.substring(0, 4) : storeId,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300),
+          ),
+          const Text(
+            "Visited",
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w300),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -188,42 +228,38 @@ class _MissionsScreenState extends State<MissionsScreen> {
 
   /// Build five mission objects with cumulative thresholds.
   List<Mission> buildMissions(int uniqueCount) {
-    Mission m1 = Mission(
-      title: "Visit 3 Boba Stores",
-      description:
-          "Visit three different boba stores to unlock your reward!",
-      current: uniqueCount.clamp(0, 3),
-      goal: 3,
-    );
-    Mission m2 = Mission(
-      title: "Visit 5 Boba Stores",
-      description:
-          "Visit five different boba stores to unlock your bonus!",
-      current: uniqueCount.clamp(0, 5),
-      goal: 5,
-    );
-    Mission m3 = Mission(
-      title: "Visit 10 Boba Stores",
-      description:
-          "Visit ten different boba stores for a major reward!",
-      current: uniqueCount.clamp(0, 10),
-      goal: 10,
-    );
-    Mission m4 = Mission(
-      title: "Visit 15 Boba Stores",
-      description:
-          "Visit fifteen boba stores to unlock an even bigger bonus!",
-      current: uniqueCount.clamp(0, 15),
-      goal: 15,
-    );
-    Mission m5 = Mission(
-      title: "Visit 20 Boba Stores",
-      description:
-          "Visit twenty boba stores for the ultimate reward!",
-      current: uniqueCount.clamp(0, 20),
-      goal: 20,
-    );
-    return [m1, m2, m3, m4, m5];
+    return [
+      Mission(
+        title: "Visit 3 Boba Stores",
+        description: "Visit three different boba stores to unlock your reward!",
+        current: uniqueCount.clamp(0, 3),
+        goal: 3,
+      ),
+      Mission(
+        title: "Visit 5 Boba Stores",
+        description: "Visit five different boba stores to unlock your bonus!",
+        current: uniqueCount.clamp(0, 5),
+        goal: 5,
+      ),
+      Mission(
+        title: "Visit 10 Boba Stores",
+        description: "Visit ten different boba stores for a major reward!",
+        current: uniqueCount.clamp(0, 10),
+        goal: 10,
+      ),
+      Mission(
+        title: "Visit 15 Boba Stores",
+        description: "Visit fifteen boba stores to unlock an even bigger bonus!",
+        current: uniqueCount.clamp(0, 15),
+        goal: 15,
+      ),
+      Mission(
+        title: "Visit 20 Boba Stores",
+        description: "Visit twenty boba stores for the ultimate reward!",
+        current: uniqueCount.clamp(0, 20),
+        goal: 20,
+      ),
+    ];
   }
 
   /// Determines if a mission is unlocked.
@@ -236,75 +272,106 @@ class _MissionsScreenState extends State<MissionsScreen> {
     return false;
   }
 
-  /// Build a mission card widget with a curved rectangle.
-  /// If locked, overlay a semi-transparent lock icon.
-  Widget buildMissionCard(Mission mission, bool unlocked) {
-    TextStyle titleStyle = TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      color: unlocked
-          ? Theme.of(context).textTheme.titleLarge?.color ?? Colors.black
-          : Colors.grey,
-    );
-    TextStyle descStyle = TextStyle(
-      fontSize: 18,
-      color: unlocked
-          ? Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87
-          : Colors.grey,
-    );
-    TextStyle progressStyle = TextStyle(
-      fontSize: 18,
-      color: unlocked
-          ? Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black
-          : Colors.grey,
-    );
-    Widget cardContent = Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: unlocked
-            ? Theme.of(context).cardColor
-            : Theme.of(context).cardColor.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(mission.title, style: titleStyle),
-          const SizedBox(height: 12),
-          Text(mission.description,
-              style: descStyle, textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          SegmentedProgressIndicator(
-            current: mission.current,
-            goal: mission.goal,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            mission.current == mission.goal
-                ? "Unlocked!"
-                : "${mission.current} / ${mission.goal} completed",
-            style: progressStyle,
+  /// Shows mission details in a dialog.
+  void showMissionDetails(Mission mission) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          mission.title,
+          style: const TextStyle(fontWeight: FontWeight.w300),
+        ),
+        content: Text(
+          mission.description +
+              "\n\nProgress: ${mission.current}/${mission.goal}",
+          style: const TextStyle(fontWeight: FontWeight.w300),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
           ),
         ],
       ),
     );
+  }
+
+  /// Build a mission row widget with a clean, modern look.
+  Widget buildMissionRow(Mission mission, bool unlocked) {
+    Widget missionRow = Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: unlocked ? Colors.white : Colors.grey.shade200,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Mission details.
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    mission.title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w300,
+                      color: unlocked ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    mission.description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w300,
+                      color: unlocked ? Colors.black87 : Colors.grey,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Progress indicator.
+            Expanded(
+              flex: 1,
+              child: Column(
+                children: [
+                  SegmentedProgressIndicator(
+                    current: mission.current,
+                    goal: mission.goal,
+                    spacing: 4,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${mission.current}/${mission.goal}",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      color: unlocked ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // If mission is locked, overlay a lock icon.
     if (!unlocked) {
-      return Stack(
+      missionRow = Stack(
         children: [
-          cardContent,
+          missionRow,
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Center(
                 child: Icon(Icons.lock, size: 40, color: Colors.grey),
@@ -314,8 +381,30 @@ class _MissionsScreenState extends State<MissionsScreen> {
         ],
       );
     } else {
-      return cardContent;
+      // If unlocked, allow tap for more details.
+      missionRow = InkWell(
+        onTap: () => showMissionDetails(mission),
+        child: missionRow,
+      );
     }
+    return missionRow;
+  }
+
+  /// Show informational dialog for Badges or Missions.
+  void showInfoDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w300)),
+        content: Text(content, style: const TextStyle(fontWeight: FontWeight.w300)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Got it"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -326,30 +415,112 @@ class _MissionsScreenState extends State<MissionsScreen> {
         .child(widget.userId);
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Missions"),
+        title: const Text("Missions", style: TextStyle(fontWeight: FontWeight.w300)),
         centerTitle: true,
       ),
       body: StreamBuilder<DatabaseEvent>(
         stream: userVisitsRef.onValue,
         builder: (context, snapshot) {
           int uniqueCount = 0;
-          if (snapshot.hasData &&
-              snapshot.data!.snapshot.value != null) {
+          List<dynamic> visitedStores = [];
+          if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
             final Map<dynamic, dynamic> visitsMap =
                 snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
             uniqueCount = visitsMap.keys.length;
+            visitedStores = visitsMap.keys.toList();
           }
           List<Mission> missions = buildMissions(uniqueCount);
-          return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: missions.length,
-            itemBuilder: (context, i) {
-              bool unlocked = isMissionUnlocked(i, uniqueCount);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10.0),
-                child: buildMissionCard(missions[i], unlocked),
-              );
-            },
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Total Visits Count.
+                  Text(
+                    "Total Visits: $uniqueCount",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Badges section header with info button.
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            "Badges",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.help_outline, size: 20),
+                            onPressed: () {
+                              showInfoDialog("Badges", "Badges are sticker-like icons that show each store you’ve visited.");
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 100,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: visitedStores.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 10),
+                      itemBuilder: (context, index) {
+                        String storeId = visitedStores[index].toString();
+                        return BadgeSticker(storeId: storeId);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Missions section header with info button.
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            "Missions",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.help_outline, size: 20),
+                            onPressed: () {
+                              showInfoDialog("Missions", "Missions track your progress in visiting different stores. Tap on an active mission to see full details.");
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: missions.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      bool unlocked = isMissionUnlocked(index, uniqueCount);
+                      return buildMissionRow(missions[index], unlocked);
+                    },
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),

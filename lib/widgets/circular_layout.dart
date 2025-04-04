@@ -45,7 +45,7 @@ class CircularLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // You can adapt sizes responsively using MediaQuery if desired.
+    // Obtain themeProvider from context.
     final themeProvider = Provider.of<ThemeProvider>(context);
     final List<BobaStore> displayStores = _getSortedStores();
     final int itemCount = displayStores.length;
@@ -71,7 +71,8 @@ class CircularLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildPositionedStore(BuildContext context, int index, double angleIncrement, List<BobaStore> displayStores) {
+  Widget _buildPositionedStore(BuildContext context, int index,
+      double angleIncrement, List<BobaStore> displayStores) {
     final double orbitRadius = radius * 1.2;
     final double angle = angleIncrement * index - pi / 2;
     final double x = orbitRadius * cos(angle);
@@ -91,11 +92,15 @@ class CircularLayout extends StatelessWidget {
         ? 'assets/${store.imageName}.png'
         : 'assets/default_image.png';
 
+    // Access the theme provider.
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     return Transform.translate(
       offset: Offset(x, y),
       child: Semantics(
         // Providing a semantic label for accessibility even though the store name is removed.
-        label: '${store.name} store, ${withinReach ? "within reach" : "not within reach"}',
+        label:
+            '${store.name} store, ${withinReach ? "within reach" : "not within reach"}',
         button: true,
         child: Material(
           color: Colors.transparent,
@@ -113,7 +118,6 @@ class CircularLayout extends StatelessWidget {
                 ),
               );
             },
-            // TweenAnimationBuilder adds a subtle scale animation for each store widget.
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 300),
@@ -127,11 +131,29 @@ class CircularLayout extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundImage: AssetImage(imagePath),
-                    backgroundColor: Colors.transparent,
+                  // The thin bordered circular container with the store image.
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: themeProvider.isDarkMode
+                            ? Colors.white70
+                            : Colors.black54,
+                        width: 1.0,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        imagePath,
+                        fit: BoxFit
+                            .cover, // or BoxFit.contain, if you prefer letterboxing
+                        alignment: Alignment.center,
+                      ),
+                    ),
                   ),
+
                   if (!withinReach)
                     Container(
                       width: 60,
@@ -141,7 +163,6 @@ class CircularLayout extends StatelessWidget {
                         color: Colors.grey.withOpacity(0.5),
                       ),
                     ),
-                  // The store name overlay has been removed per your request.
                 ],
               ),
             ),
