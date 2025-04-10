@@ -261,7 +261,7 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                   const SizedBox(height: 120),
                   const PromoBanner(),
                   const SizedBox(height: 30),
-                  const SocialMediaLinks(),
+                  const SocialMediaLinks(), //carousal messges? talking abt circle of stores
                   const SizedBox(height: 30),
                 ],
               ),
@@ -274,19 +274,19 @@ class HomeWithProgressState extends State<HomeWithProgress> {
       // Obtain the themeProvider from the context.
       final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
       Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => MissionsScreen(
-            scannedStoreIds: scannedStoreIds,
-            userId: FirebaseAuth.instance.currentUser?.uid ?? 'defaultUserId',
-            storeId: selectedStore!.id,
-            storeLatitude: selectedStore!.latitude,
-            storeLongitude: selectedStore!.longitude,
-            storeCity: selectedStore!.city,
-            themeProvider: themeProvider,
-          ),
-        ),
-      );
+  context,
+  MaterialPageRoute(
+    builder: (context) => MissionsScreen(
+      userId: FirebaseAuth.instance.currentUser!.uid, // Make sure this is non-empty
+      storeId: "Oceanside_store1",  // replace with your actual store id logic
+      storeLatitude: 33.15965,
+      storeLongitude: -117.2048917,
+      storeCity: "Oceanside",
+      scannedStoreIds: <String>{},
+      themeProvider: themeProvider, // Pass your current ThemeProvider
+    ),
+  ),
+);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No store selected.')),

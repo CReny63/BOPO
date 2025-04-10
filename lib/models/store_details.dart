@@ -8,7 +8,7 @@ import 'package:test/locations/boba_store.dart';
 class StoreDetailsScreen extends StatefulWidget {
   final BobaStore store;
   final Position userPosition;
-  final String userId;
+  final String userId; // This should be the real Firebase UID
 
   const StoreDetailsScreen({
     Key? key,
@@ -23,23 +23,17 @@ class StoreDetailsScreen extends StatefulWidget {
 
 class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   bool visitRecorded = false;
-  // Increased threshold to 13.05 meters.
-  final double thresholdMeters = 20.05; 
-
+  final double thresholdMeters = 20.05;
   Timer? _locationMonitorTimer;
   Timer? _countdownTimer;
   int _timeRemaining = 30;
   bool _timerActive = false;
-
-  // State variable to store the most recent user position.
   Position? _currentUserPosition;
 
   @override
   void initState() {
     super.initState();
-    // Initially set _currentUserPosition to the passed userPosition.
     _currentUserPosition = widget.userPosition;
-    // Monitor the user's location every second.
     _locationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       _checkAndStartCountdown();
     });
@@ -57,7 +51,6 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
     try {
       currentPosition = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
-      // Update the state with the latest position.
       setState(() {
         _currentUserPosition = currentPosition;
       });
@@ -73,11 +66,9 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
       widget.store.longitude,
     );
 
-    // If within range and no countdown is active and the visit is not recorded, start countdown.
     if (distance <= thresholdMeters && !_timerActive && !visitRecorded) {
       _startCountdown();
     } else if (distance > thresholdMeters && _timerActive) {
-      // Cancel the countdown if the user moves out of range.
       _cancelCountdown();
     }
   }
@@ -93,7 +84,6 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
       });
       if (_timeRemaining <= 0) {
         timer.cancel();
-        // Verify the user is still in range.
         Position updatedPosition;
         try {
           updatedPosition = await Geolocator.getCurrentPosition(
@@ -132,6 +122,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   }
 
   Future<void> _recordVisit(Position position) async {
+    // Write visit details under /visits/<storeId>/<userId>
     final DatabaseReference visitsRef = FirebaseDatabase.instance
         .ref()
         .child('visits')
@@ -139,36 +130,42 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
     final DataSnapshot snapshot = await visitsRef.child(widget.userId).get();
 
     if (!snapshot.exists) {
+      // Write detailed visit information.
       await visitsRef.child(widget.userId).set({
         'timestamp': DateTime.now().toIso8601String(),
         'latitude': position.latitude,
         'longitude': position.longitude,
       });
 
+      // Update the store's overall visit count.
       final DatabaseReference storeRef = FirebaseDatabase.instance
           .ref()
           .child('stores')
           .child(widget.store.city)
           .child(widget.store.id);
 
-      await storeRef.runTransaction((mutableData) async {
-        if (mutableData.value != null) {
-          Map data = Map.from(mutableData.value as Map);
-          int currentVisits = data['visits'] != null ? data['visits'] as int : 0;
+      await storeRef.runTransaction((currentData) {
+        if (currentData != null) {
+          Map data = Map.from(currentData as Map);
+          int currentVisits = data['visits'] ?? 0;
           data['visits'] = currentVisits + 1;
-          mutableData.value = data;
+          return Transaction.success(data);
         }
-        return Transaction.success(mutableData);
-      } as TransactionHandler);
+        return Transaction.success(currentData);
+      });
 
-      // Record the unique visit for missions.
+      // Record the unique visit for missions under /userVisits/<userId>/<storeId>
       await FirebaseDatabase.instance
           .ref()
           .child("userVisits")
           .child(widget.userId)
           .child(widget.store.id)
-          .set(true);
-      print("Visit registered for store ${widget.store.id}");
+          .set({
+        'timestamp': DateTime.now().toIso8601String(),
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+      });
+      print("Visit registered for store ${widget.store.id} with uid ${widget.userId}");
     }
   }
 
@@ -194,7 +191,6 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Use the updated _currentUserPosition to calculate the distance.
     double distance = 0;
     if (_currentUserPosition != null) {
       distance = Geolocator.distanceBetween(
@@ -218,16 +214,10 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.store,
-                size: 100,
-                color: Colors.grey,
-              ),
+              const Icon(Icons.store, size: 100, color: Colors.grey),
               const SizedBox(height: 24.0),
-              Text(
-                "Distance: ${distanceMiles.toStringAsFixed(2)} mi",
-                style: const TextStyle(fontSize: 18.0),
-              ),
+              Text("Distance: ${distanceMiles.toStringAsFixed(2)} mi",
+                  style: const TextStyle(fontSize: 18.0)),
               const SizedBox(height: 16.0),
               GestureDetector(
                 onTap: () => _openMaps(context),
@@ -243,20 +233,14 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
               ),
               const SizedBox(height: 24.0),
               if (visitRecorded)
-                const Text(
-                  "Visit recorded!",
-                  style: TextStyle(fontSize: 16, color: Colors.green),
-                )
+                const Text("Visit recorded!",
+                    style: TextStyle(fontSize: 16, color: Colors.green))
               else if (_timerActive)
-                Text(
-                  "Hold for $_timeRemaining sec to record visit",
-                  style: const TextStyle(fontSize: 16, color: Colors.orange),
-                )
+                Text("$_timeRemaining sec to record visit",
+                    style: const TextStyle(fontSize: 16, color: Colors.orange))
               else
-                const Text(
-                  "Move closer to record visit",
-                  style: TextStyle(fontSize: 16, color: Colors.red),
-                ),
+                const Text("Move closer to record visit",
+                    style: TextStyle(fontSize: 16, color: Colors.red)),
             ],
           ),
         ),
