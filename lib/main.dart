@@ -15,6 +15,7 @@ import 'package:test/services/splash.dart';
 import 'package:test/services/splash2.dart';
 import 'package:test/models/profile.dart';
 import 'package:firebase_core/firebase_core.dart';
+//import 'package:test/models/friends.dart'; // Updated FeaturedPage
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +34,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        // Add other providers here if needed.
+        // Add other providers if needed.
       ],
       child: const MyApp(),
     ),
@@ -74,24 +75,18 @@ class _MyAppState extends State<MyApp> {
             '/splash': (context) => SplashScreen(),
             // '/splash2' is handled via onGenerateRoute.
             '/login': (context) => LoginPage(
-                  themeProvider:
-                      Provider.of<ThemeProvider>(context, listen: false),
+                  themeProvider: Provider.of<ThemeProvider>(context, listen: false),
                 ),
             '/review': (context) {
-              // Get the current FirebaseAuth user.
-              final fbAuth.User? user =
-                  fbAuth.FirebaseAuth.instance.currentUser;
+              // Option 1: Obtain UID directly from FirebaseAuth, if desired.
+              final fbAuth.User? user = fbAuth.FirebaseAuth.instance.currentUser;
               final String uid = user?.uid ?? '';
-              // Optionally, handle the case where uid is empty (user not logged in).
               return review.StoresPage(
-                toggleTheme: Provider.of<ThemeProvider>(context, listen: false)
-                    .toggleTheme,
-                isDarkMode: Provider.of<ThemeProvider>(context, listen: false)
-                    .isDarkMode,
+                toggleTheme: Provider.of<ThemeProvider>(context, listen: false).toggleTheme,
+                isDarkMode: Provider.of<ThemeProvider>(context, listen: false).isDarkMode,
                 uid: uid,
               );
             },
-
             '/splash3': (context) => const SplashScreen(),
             '/notifications': (context) {
               return notifications.NotificationsPage(
@@ -104,19 +99,19 @@ class _MyAppState extends State<MyApp> {
                 toggleTheme: themeProvider.toggleTheme,
                 isDarkMode: themeProvider.isDarkMode,
                 username: '', // Supply actual username as needed.
-                email: '', // Supply actual email as needed.
+                email: '',    // Supply actual email as needed.
               );
             },
           },
-          // Use onGenerateRoute to handle routes that need to receive arguments.
+          // onGenerateRoute handles routes that require a UID argument.
           onGenerateRoute: (RouteSettings settings) {
             if (settings.name == '/splash2') {
               final uid = settings.arguments as String?;
               if (uid == null || uid.isEmpty) {
                 return MaterialPageRoute(
-                    builder: (_) => LoginPage(
-                        themeProvider:
-                            Provider.of<ThemeProvider>(_, listen: false)));
+                  builder: (_) => LoginPage(
+                      themeProvider: Provider.of<ThemeProvider>(_, listen: false)),
+                );
               }
               return MaterialPageRoute(builder: (_) => Splash2(uid: uid));
             }
@@ -124,22 +119,23 @@ class _MyAppState extends State<MyApp> {
               final uid = settings.arguments as String?;
               if (uid == null || uid.isEmpty) {
                 return MaterialPageRoute(
-                    builder: (_) => LoginPage(
-                        themeProvider:
-                            Provider.of<ThemeProvider>(_, listen: false)));
+                  builder: (_) => LoginPage(
+                      themeProvider: Provider.of<ThemeProvider>(_, listen: false)),
+                );
               }
               return MaterialPageRoute(
-                  builder: (_) => HomeWithProgress(
-                        uid: uid,
-                        isDarkMode: themeProvider.isDarkMode,
-                        toggleTheme: themeProvider.toggleTheme,
-                      ));
+                builder: (_) => HomeWithProgress(
+                  uid: uid,
+                  isDarkMode: themeProvider.isDarkMode,
+                  toggleTheme: themeProvider.toggleTheme,
+                ),
+              );
             }
             return null;
           },
           debugShowCheckedModeBanner: false,
-          // Instead of a fallback home with an empty UID, we use a FutureBuilder
-          // that checks the FirebaseAuth auth state.
+          // Instead of a fallback home with an empty UID, use a FutureBuilder
+          // to check FirebaseAuth state.
           home: FutureBuilder<fbAuth.User?>(
             future: fbAuth.FirebaseAuth.instance.authStateChanges().first,
             builder: (context, snapshot) {

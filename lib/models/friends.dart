@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:test/services/theme_provider.dart';
+import 'package:test/user.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
 import 'package:test/widgets/app_bar_content.dart';
+
+import '../user.dart';
 
 class FeaturedPage extends StatefulWidget {
   const FeaturedPage({Key? key}) : super(key: key);
@@ -79,7 +83,8 @@ class _FeaturedPageState extends State<FeaturedPage> {
         if (feat.isNotEmpty && !seenFeatured.contains(feat)) {
           uniqueStores.add(store);
           seenFeatured.add(feat);
-          debugPrint("Added unique store ${store.id} with featured drink: '$feat'");
+          debugPrint(
+              "Added unique store ${store.id} with featured drink: '$feat'");
         }
       }
       debugPrint("Unique featured stores count: ${uniqueStores.length}");
@@ -92,7 +97,8 @@ class _FeaturedPageState extends State<FeaturedPage> {
             if (uniqueStores.length >= 8) break;
           }
         }
-        debugPrint("Filled up to ${uniqueStores.length} stores after adding duplicates.");
+        debugPrint(
+            "Filled up to ${uniqueStores.length} stores after adding duplicates.");
       }
 
       // Limit to exactly 8 items if there are more.
@@ -161,24 +167,26 @@ class _FeaturedPageState extends State<FeaturedPage> {
                   itemCount: _nearbyStores.length,
                   itemBuilder: (context, index, realIndex) {
                     final store = _nearbyStores[index];
-                    
+
                     // Debug prints for each store.
-                    debugPrint("Building carousel item for store id: ${store.id}");
+                    debugPrint(
+                        "Building carousel item for store id: ${store.id}");
                     debugPrint("Store imagefeat: '${store.imagefeat}'");
                     debugPrint("Store namefeat: '${store.namefeat}'");
-                    
+
                     // Use the new attribute imagefeat for the image.
                     final imagePath = _getAssetPath(store.imagefeat);
-                    
+
                     // Use the new attribute namefeat for the bottom overlay.
                     final featuredName = store.namefeat;
-                    
+
                     // Use store.name as the top overlay (e.g., drink name).
                     final drinkName = store.name;
-                    
+
                     return Card(
                       elevation: 4,
-                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -266,7 +274,17 @@ class _FeaturedPageState extends State<FeaturedPage> {
             IconButton(
               icon: const Icon(Icons.home_outlined, size: 21.0),
               tooltip: 'Home',
-              onPressed: () => Navigator.pushNamed(context, '/main'),
+              onPressed: () {
+                final fbAuth.User? user =
+                    fbAuth.FirebaseAuth.instance.currentUser;
+                if (user != null && user.uid.isNotEmpty) {
+                  Navigator.pushReplacementNamed(context, '/main',
+                      arguments: user.uid);
+                } else {
+                  // If for some reason there is no current user, fallback to login.
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
             ),
             IconButton(
               icon: const Icon(Icons.map_outlined, size: 21.0),

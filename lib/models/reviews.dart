@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -235,11 +236,21 @@ class _StoresPageState extends State<StoresPage> {
             tooltip: 'Featured',
             onPressed: () => Navigator.pushNamed(context, '/friends'),
           ),
-          IconButton(
-            icon: const Icon(Icons.home_outlined, size: 21.0),
-            tooltip: 'Home',
-            onPressed: () => Navigator.pushNamed(context, '/main'),
-          ),
+           IconButton(
+              icon: const Icon(Icons.home_outlined, size: 21.0),
+              tooltip: 'Home',
+              onPressed: () {
+                final fbAuth.User? user =
+                    fbAuth.FirebaseAuth.instance.currentUser;
+                if (user != null && user.uid.isNotEmpty) {
+                  Navigator.pushReplacementNamed(context, '/main',
+                      arguments: user.uid);
+                } else {
+                  // If for some reason there is no current user, fallback to login.
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.map_outlined, size: 21.0),
             tooltip: 'Map',

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
+import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -177,16 +178,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   /// Clears the cached location data and refreshes the markers.
-  Future<void> _clearCacheAndRefresh() async {
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys();
-    for (String key in keys) {
-      if (key.startsWith("accurateLocation_") || key.startsWith("accurateLocationTimestamp_")) {
-        await prefs.remove(key);
-      }
-    }
-    await _fetchStoresUsingAlgorithm();
-  }
+  // Future<void> _clearCacheAndRefresh() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   final keys = prefs.getKeys();
+  //   for (String key in keys) {
+  //     if (key.startsWith("accurateLocation_") || key.startsWith("accurateLocationTimestamp_")) {
+  //       await prefs.remove(key);
+  //     }
+  //   }
+  //   await _fetchStoresUsingAlgorithm();
+  // }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
@@ -274,11 +275,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 tooltip: 'Featured',
                 onPressed: () => Navigator.pushNamed(context, '/friends'),
               ),
-              IconButton(
-                icon: const Icon(Icons.home_outlined, size: 21.0),
-                tooltip: 'Home',
-                onPressed: () => Navigator.pushNamed(context, '/main'),
-              ),
+               IconButton(
+              icon: const Icon(Icons.home_outlined, size: 21.0),
+              tooltip: 'Home',
+              onPressed: () {
+                final fbAuth.User? user =
+                    fbAuth.FirebaseAuth.instance.currentUser;
+                if (user != null && user.uid.isNotEmpty) {
+                  Navigator.pushReplacementNamed(context, '/main',
+                      arguments: user.uid);
+                } else {
+                  // If for some reason there is no current user, fallback to login.
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
+            ),
               IconButton(
                 icon: const Icon(Icons.map_outlined, size: 21.0),
                 tooltip: 'Map',
