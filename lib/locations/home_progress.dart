@@ -22,11 +22,13 @@ import 'package:test/widgets/social_media.dart';
 class HomeWithProgress extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback toggleTheme;
+  final String uid; // Add UID parameter
 
   const HomeWithProgress({
     super.key,
     required this.isDarkMode,
     required this.toggleTheme,
+      required this.uid,
   });
 
   @override
@@ -255,7 +257,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                     child: NearbyStoresWidget(
                       stores: sortedStores,
                       userPosition: _lastKnownPosition!,
-                      userLocationText: city,
+                      userLocationText: city, 
+                      uid: widget.uid,
                     ),
                   ),
                   const SizedBox(height: 120),
@@ -277,15 +280,16 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   context,
   MaterialPageRoute(
     builder: (context) => MissionsScreen(
-      userId: FirebaseAuth.instance.currentUser!.uid, // Make sure this is non-empty
-      storeId: "Oceanside_store1",  // replace with your actual store id logic
+      userId: widget.uid, // Use the real uid from HomeWithProgress
+      storeId: "Oceanside_store1", // Example store id
       storeLatitude: 33.15965,
       storeLongitude: -117.2048917,
       storeCity: "Oceanside",
       scannedStoreIds: <String>{},
-      themeProvider: themeProvider, // Pass your current ThemeProvider
+      themeProvider: themeProvider,
     ),
   ),
+
 );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

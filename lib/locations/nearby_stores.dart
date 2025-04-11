@@ -7,11 +7,18 @@ import 'package:test/locations/geolocator.dart';
 import 'package:test/widgets/circular_layout.dart'; // Use the updated circular layout
 
 class NearbyStoresWidget extends StatefulWidget {
-  const NearbyStoresWidget(
-      {super.key,
-      required List<BobaStore> stores,
-      required Position userPosition,
-      required String userLocationText});
+  final List<BobaStore> stores;
+  final Position userPosition;
+  final String userLocationText;
+  final String uid; // Accept the UID here
+
+  const NearbyStoresWidget({
+    super.key,
+    required this.stores,
+    required this.userPosition,
+    required this.userLocationText,
+    required this.uid, // Now the caller must supply a UID
+  });
 
   @override
   _NearbyStoresWidgetState createState() => _NearbyStoresWidgetState();
@@ -106,7 +113,8 @@ class _NearbyStoresWidgetState extends State<NearbyStoresWidget> {
       bobaStores: stores,
       userPosition: userPosition!,
       maxDistanceThreshold: 5000, // e.g., 5000 meters (5 km)
-      userLocationText: userLocationText,
+      userLocationText: userLocationText, 
+      uid: widget.uid,
     );
   }
 }

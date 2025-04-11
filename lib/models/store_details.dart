@@ -30,14 +30,15 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   bool _timerActive = false;
   Position? _currentUserPosition;
 
-  @override
-  void initState() {
-    super.initState();
-    _currentUserPosition = widget.userPosition;
-    _locationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      _checkAndStartCountdown();
-    });
-  }
+ @override
+void initState() {
+  super.initState();
+  print("StoreDetailsScreen initialized with UID: ${widget.userId}");
+  _currentUserPosition = widget.userPosition;
+  _locationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _checkAndStartCountdown();
+  });
+}
 
   @override
   void dispose() {
@@ -121,53 +122,57 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
     });
   }
 
-  Future<void> _recordVisit(Position position) async {
-    // Write visit details under /visits/<storeId>/<userId>
+ Future<void> _recordVisit(Position position) async {
+  // Check uniqueness using the userVisits node.
+  final DatabaseReference userVisitsRef = FirebaseDatabase.instance
+      .ref()
+      .child("userVisits")
+      .child(widget.userId)
+      .child(widget.store.id);
+  final DataSnapshot snapshot = await userVisitsRef.get();
+
+  if (!snapshot.exists) {
+    // Write detailed visit information to visits node.
     final DatabaseReference visitsRef = FirebaseDatabase.instance
         .ref()
         .child('visits')
         .child(widget.store.id);
-    final DataSnapshot snapshot = await visitsRef.child(widget.userId).get();
+    await visitsRef.child(widget.userId).set({
+      'timestamp': DateTime.now().toIso8601String(),
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+    });
 
-    if (!snapshot.exists) {
-      // Write detailed visit information.
-      await visitsRef.child(widget.userId).set({
-        'timestamp': DateTime.now().toIso8601String(),
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-      });
+    // Update the store's overall visit count.
+    final DatabaseReference storeRef = FirebaseDatabase.instance
+        .ref()
+        .child('stores')
+        .child(widget.store.city)
+        .child(widget.store.id);
 
-      // Update the store's overall visit count.
-      final DatabaseReference storeRef = FirebaseDatabase.instance
-          .ref()
-          .child('stores')
-          .child(widget.store.city)
-          .child(widget.store.id);
+    await storeRef.runTransaction((currentData) {
+      if (currentData != null) {
+        Map data = Map.from(currentData as Map);
+        int currentVisits = data['visits'] ?? 0;
+        data['visits'] = currentVisits + 1;
+        return Transaction.success(data);
+      }
+      return Transaction.success(currentData);
+    });
 
-      await storeRef.runTransaction((currentData) {
-        if (currentData != null) {
-          Map data = Map.from(currentData as Map);
-          int currentVisits = data['visits'] ?? 0;
-          data['visits'] = currentVisits + 1;
-          return Transaction.success(data);
-        }
-        return Transaction.success(currentData);
-      });
+    // Record the unique visit for missions in the userVisits node.
+    await userVisitsRef.set({
+      'timestamp': DateTime.now().toIso8601String(),
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+    });
 
-      // Record the unique visit for missions under /userVisits/<userId>/<storeId>
-      await FirebaseDatabase.instance
-          .ref()
-          .child("userVisits")
-          .child(widget.userId)
-          .child(widget.store.id)
-          .set({
-        'timestamp': DateTime.now().toIso8601String(),
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-      });
-      print("Visit registered for store ${widget.store.id} with uid ${widget.userId}");
-    }
+    print("Visit registered for store ${widget.store.id} with uid ${widget.userId}");
+  } else {
+    print("Visit already recorded for store ${widget.store.id} for uid ${widget.userId}");
   }
+}
+
 
   Future<void> _openMaps(BuildContext context) async {
     final Uri googleMapsUri = Uri(

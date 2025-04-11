@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class Splash2 extends StatefulWidget {
-  const Splash2({Key? key}) : super(key: key);
+  final String uid; // Accept the real Firebase UID.
+
+  const Splash2({Key? key, required this.uid}) : super(key: key);
 
   @override
   Splash2State createState() => Splash2State();
@@ -11,18 +13,19 @@ class Splash2State extends State<Splash2> {
   @override
   void initState() {
     super.initState();
-    // Wait for 3 seconds before navigating to the main screen.
+    // Wait for 4 seconds then navigate to the main screen, passing the uid.
     Future.delayed(const Duration(seconds: 4), _navigateToMain);
   }
 
   void _navigateToMain() {
-    Navigator.pushReplacementNamed(context, '/main');
+    // Pass the uid to the '/main' route as an argument.
+    Navigator.pushReplacementNamed(context, '/main', arguments: widget.uid);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Use a similar gradient background.
+      // Use a gradient background.
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

@@ -12,6 +12,7 @@ class CircularLayout extends StatelessWidget {
   final Position userPosition;
   final double maxDistanceThreshold;
   final String userLocationText; // e.g. "San Marcos, CA"
+  final String uid; // Add the UID property
 
   const CircularLayout({
     Key? key,
@@ -20,6 +21,7 @@ class CircularLayout extends StatelessWidget {
     required this.userPosition,
     required this.maxDistanceThreshold,
     required this.userLocationText,
+    required this.uid, // This must be provided when constructing CircularLayout.
   }) : super(key: key);
 
   // Helper method to sort stores by distance and return the closest 8.
@@ -98,7 +100,7 @@ class CircularLayout extends StatelessWidget {
     return Transform.translate(
       offset: Offset(x, y),
       child: Semantics(
-        // Providing a semantic label for accessibility even though the store name is removed.
+        // Providing a semantic label for accessibility.
         label:
             '${store.name} store, ${withinReach ? "within reach" : "not within reach"}',
         button: true,
@@ -107,13 +109,15 @@ class CircularLayout extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(30),
             onTap: () {
+              // Since this is a StatelessWidget,
+              // refer to the uid property directly (not widget.uid)
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => StoreDetailsScreen(
+                  builder: (context) => StoreDetailsScreen(
                     store: store,
                     userPosition: userPosition,
-                    userId: '',
+                    userId: uid,  // Use the UID passed into CircularLayout
                   ),
                 ),
               );
@@ -131,7 +135,7 @@ class CircularLayout extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // The thin bordered circular container with the store image.
+                  // The circular container with border and image.
                   Container(
                     width: 60,
                     height: 60,
@@ -147,13 +151,11 @@ class CircularLayout extends StatelessWidget {
                     child: ClipOval(
                       child: Image.asset(
                         imagePath,
-                        fit: BoxFit
-                            .cover, // or BoxFit.contain, if you prefer letterboxing
+                        fit: BoxFit.cover,
                         alignment: Alignment.center,
                       ),
                     ),
                   ),
-
                   if (!withinReach)
                     Container(
                       width: 60,

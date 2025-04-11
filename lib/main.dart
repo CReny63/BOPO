@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -15,19 +15,17 @@ import 'package:test/services/splash.dart';
 import 'package:test/services/splash2.dart';
 import 'package:test/models/profile.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:test/models/friends.dart'; // Updated FeaturedPage
-// import 'package:test/models/user_admin_page.dart'; // Uncomment if needed
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(); // Initialize Firebase
 
-  // Automatically sign out after every restart.
+  // Automatically sign out after every restart (for testing/demo).
   await GoogleSignIn().signOut();
-  await FirebaseAuth.instance.signOut();
+  await fbAuth.FirebaseAuth.instance.signOut();
 
-  // Initialize Hive for Flutter
+  // Initialize Hive for Flutter.
   await Hive.initFlutter();
   Hive.registerAdapter(UserAdapter());
 
@@ -35,7 +33,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        // Add other providers here if needed
+        // Add other providers here if needed.
       ],
       child: const MyApp(),
     ),
@@ -70,24 +68,30 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           title: 'Meta Verse',
           theme: themeProvider.currentTheme,
-          initialRoute: '/splash', // Start at splash screen
+          initialRoute: '/splash', // Start at splash screen.
           routes: {
-            // For pages that now obtain theme from Provider, we instantiate them without extra parameters.
             '/friends': (context) => const FeaturedPage(),
             '/splash': (context) => SplashScreen(),
-            '/splash2': (context) => Splash2(),
-            // Uncomment and adjust the following if needed:
-            // '/user_admin': (context) => const UserAdminPage(),
+            // '/splash2' is handled via onGenerateRoute.
             '/login': (context) => LoginPage(
                   themeProvider:
                       Provider.of<ThemeProvider>(context, listen: false),
                 ),
             '/review': (context) {
+              // Get the current FirebaseAuth user.
+              final fbAuth.User? user =
+                  fbAuth.FirebaseAuth.instance.currentUser;
+              final String uid = user?.uid ?? '';
+              // Optionally, handle the case where uid is empty (user not logged in).
               return review.StoresPage(
-                toggleTheme: themeProvider.toggleTheme,
-                isDarkMode: themeProvider.isDarkMode,
+                toggleTheme: Provider.of<ThemeProvider>(context, listen: false)
+                    .toggleTheme,
+                isDarkMode: Provider.of<ThemeProvider>(context, listen: false)
+                    .isDarkMode,
+                uid: uid,
               );
             },
+
             '/splash3': (context) => const SplashScreen(),
             '/notifications': (context) {
               return notifications.NotificationsPage(
@@ -99,31 +103,61 @@ class _MyAppState extends State<MyApp> {
               return ProfilePage(
                 toggleTheme: themeProvider.toggleTheme,
                 isDarkMode: themeProvider.isDarkMode,
-                username: '', // Supply actual username as needed
-                email: '', // Supply actual email as needed
+                username: '', // Supply actual username as needed.
+                email: '', // Supply actual email as needed.
               );
             },
           },
-          onGenerateRoute: (settings) {
-            if (settings.name == '/main') {
-              return PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) {
-                  return HomeWithProgress(
-                    isDarkMode: themeProvider.isDarkMode,
-                    toggleTheme: themeProvider.toggleTheme,
-                  );
-                },
-                transitionDuration: Duration.zero,
-                reverseTransitionDuration: Duration.zero,
-              );
+          // Use onGenerateRoute to handle routes that need to receive arguments.
+          onGenerateRoute: (RouteSettings settings) {
+            if (settings.name == '/splash2') {
+              final uid = settings.arguments as String?;
+              if (uid == null || uid.isEmpty) {
+                return MaterialPageRoute(
+                    builder: (_) => LoginPage(
+                        themeProvider:
+                            Provider.of<ThemeProvider>(_, listen: false)));
+              }
+              return MaterialPageRoute(builder: (_) => Splash2(uid: uid));
             }
-            return null; // Use default behavior for other routes.
+            if (settings.name == '/main') {
+              final uid = settings.arguments as String?;
+              if (uid == null || uid.isEmpty) {
+                return MaterialPageRoute(
+                    builder: (_) => LoginPage(
+                        themeProvider:
+                            Provider.of<ThemeProvider>(_, listen: false)));
+              }
+              return MaterialPageRoute(
+                  builder: (_) => HomeWithProgress(
+                        uid: uid,
+                        isDarkMode: themeProvider.isDarkMode,
+                        toggleTheme: themeProvider.toggleTheme,
+                      ));
+            }
+            return null;
           },
           debugShowCheckedModeBanner: false,
-          // Set home to the main page as fallback.
-          home: HomeWithProgress(
-            isDarkMode: themeProvider.isDarkMode,
-            toggleTheme: themeProvider.toggleTheme,
+          // Instead of a fallback home with an empty UID, we use a FutureBuilder
+          // that checks the FirebaseAuth auth state.
+          home: FutureBuilder<fbAuth.User?>(
+            future: fbAuth.FirebaseAuth.instance.authStateChanges().first,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.hasData && snapshot.data != null) {
+                // Use the real UID from FirebaseAuth.
+                return HomeWithProgress(
+                  uid: snapshot.data!.uid,
+                  isDarkMode: themeProvider.isDarkMode,
+                  toggleTheme: themeProvider.toggleTheme,
+                );
+              }
+              return LoginPage(themeProvider: themeProvider);
+            },
           ),
         );
       },

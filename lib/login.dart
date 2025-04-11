@@ -2,14 +2,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test/services/theme_provider.dart';
-import 'package:test/services/auth_service.dart'; // make sure this file is available
+import 'package:test/services/auth_service.dart'; // Your auth service file
 import 'package:test/widgets/forgot_password_screen.dart';
-
 
 class LoginPage extends StatefulWidget {
   final ThemeProvider themeProvider;
-
   const LoginPage({Key? key, required this.themeProvider}) : super(key: key);
 
   @override
@@ -17,12 +16,39 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // Use email field instead of a generic username field.
+  // Using email (not generic username) for login.
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   final AuthService _authService = AuthService();
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  // Load saved credentials from SharedPreferences (if any)
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? savedEmail = prefs.getString('email');
+    String? savedPassword = prefs.getString('password');
+    if (savedEmail != null && savedPassword != null) {
+      setState(() {
+        emailController.text = savedEmail;
+        passwordController.text = savedPassword;
+      });
+    }
+  }
+
+  // Save credentials to SharedPreferences
+  Future<void> _saveCredentials(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('email', email);
+    await prefs.setString('password', password);
+  }
+
+  // Sign in using Email/Password (Firebase Auth) and save credentials
   Future<void> _handleEmailSignIn() async {
     try {
       UserCredential credential = await _authService.signInWithEmailPassword(
@@ -30,10 +56,12 @@ class _LoginPageState extends State<LoginPage> {
         passwordController.text,
       );
       String uid = credential.user!.uid;
+      // Optionally save email and password so they can be reloaded later.
+      await _saveCredentials(emailController.text.trim(), passwordController.text);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Email Sign In Successful!')),
       );
-      // Navigate and pass the real UID; adjust your route as needed.
+      // Navigate to next screen (pass the uid as argument)
       Navigator.pushReplacementNamed(context, '/splash2', arguments: uid);
     } catch (e) {
       print("Error during Email Sign-In: $e");
@@ -43,13 +71,16 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // Sign in using Google (Firebase Auth)
   Future<void> _handleGoogleSignIn() async {
     UserCredential? userCredential = await _authService.signInWithGoogle();
     if (userCredential != null) {
-      String uid = userCredential.user!.uid; // Extract real UID
+      String uid = userCredential.user!.uid; // Real Firebase UID
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Google Sign In Successful!')),
       );
+      // For convenience, you might want to save the user's email as well.
+      await _saveCredentials(userCredential.user!.email ?? '', '');
       Navigator.pushReplacementNamed(context, '/splash2', arguments: uid);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,7 +99,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: () async => false, // disable back button
+      onWillPop: () async => false, // disable the Android back button
       child: Scaffold(
         backgroundColor: const Color.fromARGB(255, 228, 197, 171),
         appBar: AppBar(
@@ -153,7 +184,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Sign-Up Button (Using Firebase Auth for Email/Password Sign-Up)
+                  // Sign-Up Button
                   SizedBox(
                     width: 280,
                     child: ElevatedButton(
@@ -212,7 +243,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// A basic SignUpScreen using Firebase Email/Password for sign-up.
+// A simple SignUpScreen using Firebase Email/Password.
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
 
@@ -221,7 +252,7 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  final TextEditingController emailController    = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
 
@@ -236,10 +267,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
     try {
       UserCredential credential = await _auth.createUserWithEmailAndPassword(
-          email: emailController.text.trim(), 
+          email: emailController.text.trim(),
           password: passwordController.text,
       );
       String uid = credential.user!.uid;
+      // Save credentials for future convenience.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('email', emailController.text.trim());
+      await prefs.setString('password', passwordController.text);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sign Up Successful!')),
       );
@@ -317,4 +352,4 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 }
 
-// (The ForgotPasswordScreen can remain similar, ideally using FirebaseAuth.instance.sendPasswordResetEmail)
+// ForgotPasswordScreen remains similar.

@@ -59,41 +59,85 @@ class SegmentedProgressIndicator extends StatelessWidget {
 }
 
 class BadgeSticker extends StatelessWidget {
-  final String storeId;
+  final String storeName;
+  final String timestamp;
 
-  const BadgeSticker({Key? key, required this.storeId}) : super(key: key);
+  const BadgeSticker({
+    Key? key,
+    required this.storeName,
+    required this.timestamp, required String storeId,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Try to parse the timestamp; use current date if parsing fails.
+    DateTime visitDate = DateTime.tryParse(timestamp) ?? DateTime.now();
+    // Simple formatting: day/month/year.
+    final formattedDate = "${visitDate.day}/${visitDate.month}/${visitDate.year}";
+
     return Container(
-      width: 80,
+      width: 80, // slightly larger for a sticker look
+      height: 80,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
+        shape: BoxShape.circle,
+        // A fun gradient background for a cartoon feel.
+        gradient: const LinearGradient(
+          colors: [Color.fromARGB(255, 147, 91, 52), Color.fromRGBO(213, 185, 142, 1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        // Thicker, bold border.
+        border: Border.all(
+          color: Colors.black,
+          width: 3,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            blurRadius: 4,
-            offset: const Offset(2, 2),
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 6,
+            offset: const Offset(2, 4),
           ),
         ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.store, size: 32, color: Theme.of(context).primaryColor),
-          const SizedBox(height: 4),
-          Text(
-            storeId.length >= 4 ? storeId.substring(0, 4) : storeId,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300),
-          ),
-          const Text("Visited", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w300)),
-        ],
+      // A slight rotation for a playful effect.
+      child: Transform.rotate(
+        angle: 0.05, // ~2.9 degrees rotation; adjust as needed.
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.store,
+              size: 20,
+              color: Colors.black,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              storeName,
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              formattedDate,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+
 
 class MissionsScreen extends StatefulWidget {
   final String userId; // Real UID from FirebaseAuth.
@@ -442,7 +486,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
                       separatorBuilder: (context, index) => const SizedBox(width: 10),
                       itemBuilder: (context, index) {
                         String storeId = visitedStores[index].toString();
-                        return BadgeSticker(storeId: storeId);
+                        return BadgeSticker(storeId: storeId, storeName: '', timestamp: '',);
                       },
                     ),
                   ),

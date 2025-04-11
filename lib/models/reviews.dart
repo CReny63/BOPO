@@ -7,11 +7,19 @@ import 'package:test/locations/boba_store.dart';
 import 'package:test/models/store_details.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 
 class StoresPage extends StatefulWidget {
-  const StoresPage({Key? key, required void Function() toggleTheme, required bool isDarkMode}) : super(key: key);
+  final String uid; // Real UID passed from the parent
+  final void Function() toggleTheme;
+  final bool isDarkMode;
+
+  const StoresPage({
+    Key? key,
+    required this.uid,
+    required this.toggleTheme,
+    required this.isDarkMode,
+  }) : super(key: key);
 
   @override
   _StoresPageState createState() => _StoresPageState();
@@ -62,8 +70,8 @@ class _StoresPageState extends State<StoresPage> {
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(75),
           child: AppBarContent(
-            toggleTheme: themeProvider.toggleTheme,
-            isDarkMode: themeProvider.isDarkMode,
+            toggleTheme: widget.toggleTheme,
+            isDarkMode: widget.isDarkMode,
           ),
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -74,8 +82,8 @@ class _StoresPageState extends State<StoresPage> {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: AppBarContent(
-          toggleTheme: themeProvider.toggleTheme,
-          isDarkMode: themeProvider.isDarkMode,
+          toggleTheme: widget.toggleTheme,
+          isDarkMode: widget.isDarkMode,
         ),
       ),
       body: CustomRefreshIndicator(
@@ -175,7 +183,7 @@ class _StoresPageState extends State<StoresPage> {
                   child: StoreCard(
                     store: store,
                     isFavorite: favoriteStoreIds.contains(store.id),
-                    isDarkMode: themeProvider.isDarkMode,
+                    isDarkMode: widget.isDarkMode,
                     userPosition: userPosition!,
                     onFavoriteToggle: () {
                       setState(() {
@@ -193,11 +201,11 @@ class _StoresPageState extends State<StoresPage> {
                           builder: (_) => StoreDetailsScreen(
                             store: store,
                             userPosition: userPosition!,
-                            userId: FirebaseAuth.instance.currentUser?.uid ?? 'defaultUserId',
+                            userId: widget.uid, // Use the passed uid here
                           ),
                         ),
                       );
-                    },
+                    }, uid: widget.uid,
                   ),
                 );
               },
@@ -205,38 +213,44 @@ class _StoresPageState extends State<StoresPage> {
           },
         ),
       ),
-      bottomNavigationBar: BottomAppBar(
-        color: Theme.of(context).colorScheme.surface,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            IconButton(
-              icon: const Icon(Icons.star_outline, size: 21.0),
-              tooltip: 'Visits',
-              onPressed: () => Navigator.pushNamed(context, '/reviews'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
-              tooltip: 'Featured',
-              onPressed: () => Navigator.pushNamed(context, '/friends'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.home_outlined, size: 21.0),
-              tooltip: 'Home',
-              onPressed: () => Navigator.pushNamed(context, '/main'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.map_outlined, size: 21.0),
-              tooltip: 'Map',
-              onPressed: () => Navigator.pushNamed(context, '/notifications'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.person_outline, size: 21.0),
-              tooltip: 'Profile',
-              onPressed: () => Navigator.pushNamed(context, '/profile'),
-            ),
-          ],
-        ),
+      bottomNavigationBar: buildBottomNavBar(context),
+    );
+  }
+
+  Widget buildBottomNavBar(BuildContext context) {
+    return BottomAppBar(
+      color: Theme.of(context).colorScheme.surface,
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 6.0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.star_outline, size: 21.0),
+            tooltip: 'Visits',
+            onPressed: () => Navigator.pushNamed(context, '/review'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
+            tooltip: 'Featured',
+            onPressed: () => Navigator.pushNamed(context, '/friends'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.home_outlined, size: 21.0),
+            tooltip: 'Home',
+            onPressed: () => Navigator.pushNamed(context, '/main'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.map_outlined, size: 21.0),
+            tooltip: 'Map',
+            onPressed: () => Navigator.pushNamed(context, '/notifications'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.person_outline, size: 21.0),
+            tooltip: 'Profile',
+            onPressed: () => Navigator.pushNamed(context, '/profile'),
+          ),
+        ],
       ),
     );
   }
@@ -250,6 +264,7 @@ class StoreCard extends StatelessWidget {
   final Position userPosition;
   final VoidCallback onFavoriteToggle;
   final VoidCallback onTap;
+  final String uid; // Add this parameter
 
   const StoreCard({
     Key? key,
@@ -259,6 +274,7 @@ class StoreCard extends StatelessWidget {
     required this.userPosition,
     required this.onFavoriteToggle,
     required this.onTap,
+    required this.uid, // Require a valid UID here
   }) : super(key: key);
 
   @override
@@ -306,13 +322,14 @@ class StoreCard extends StatelessWidget {
               future: FirebaseDatabase.instance
                   .ref()
                   .child('userStoreVisits')
-                  .child(FirebaseAuth.instance.currentUser?.uid ?? '')
+                  .child(uid) // Use the uid property directly
                   .child(store.id)
                   .get(),
               builder: (context, snapshot) {
                 int userVisits = 0;
                 if (snapshot.hasData && snapshot.data!.value != null) {
-                  userVisits = int.tryParse(snapshot.data!.value.toString()) ?? 0;
+                  userVisits =
+                      int.tryParse(snapshot.data!.value.toString()) ?? 0;
                 }
                 return Text(
                   "Your Visits: $userVisits",
@@ -334,6 +351,7 @@ class StoreCard extends StatelessWidget {
     );
   }
 }
+
 
 /// A widget that adds fade and slide animation to its child.
 class AnimatedStoreCard extends StatefulWidget {
