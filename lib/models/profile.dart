@@ -1,20 +1,69 @@
 import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:test/services/theme_provider.dart'; // Adjust the path as needed
+import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
+import 'package:test/widgets/missionScreen.dart';
+
+/// A simple HelpScreen for Q&A support.
+class HelpScreen extends StatelessWidget {
+  const HelpScreen({Key? key}) : super(key: key);
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Get Help'),
+      ),
+      body: const Center(
+        child: Text(
+          'Q&A\n\nHere are some frequently asked questions and answers...',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
+        ),
+      ),
+    );
+  }
+}
+
+/// A simple SavedStores screen that displays the saved/starred stores.
+class SavedStoresScreen extends StatelessWidget {
+  final String uid;
+  const SavedStoresScreen({Key? key, required this.uid}) : super(key: key);
+  
+  @override
+  Widget build(BuildContext context) {
+    // Here you would retrieve the saved stores for the user (using uid)
+    // For demonstration, we simply show placeholder content.
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Saved Stores'),
+      ),
+      body: const Center(
+        child: Text(
+          'List of your saved stores will appear here.',
+          style: TextStyle(fontSize: 16),
+        ),
+      ),
+    );
+  }
+}
 
 class ProfilePage extends StatelessWidget {
   final String username;
   final String email;
   // The password is not displayed in plain text – using a masked value.
   final String maskedPassword;
+  final bool isDarkMode;
+  final void Function() toggleTheme;
 
   const ProfilePage({
     Key? key,
     required this.username,
     required this.email,
-    this.maskedPassword = '********', required bool isDarkMode, required void Function() toggleTheme,
+    this.maskedPassword = '********',
+    required this.isDarkMode,
+    required this.toggleTheme,
   }) : super(key: key);
 
   // Shows the Manage Account dialog with user details and a reset password button.
@@ -44,7 +93,7 @@ class ProfilePage extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () {
-                // Add your reset password logic here (e.g. sending a one-time code).
+                // Add your reset password logic here.
                 print('Reset password pressed - sending one time code.');
                 Navigator.of(context).pop();
               },
@@ -83,46 +132,70 @@ class ProfilePage extends StatelessWidget {
 
   // Logs out the user.
   void _logout(BuildContext context) {
-    // Replace this with your logout logic (e.g. FirebaseAuth.instance.signOut()).
     print('Logout pressed');
+    // Replace this with your Firebase sign-out logic if needed.
+    fbAuth.FirebaseAuth.instance.signOut();
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  // Build the Account tab.
+  // Build the Account tab with updated actions.
   Widget _buildAccountTab(BuildContext context) {
-    return ListView(
-      children: [
-        _buildListTile(
-          'My Missions',
-          'View your missions progress',
-          Icons.emoji_events,
-          () => Navigator.pushNamed(context, '/missions'),
+  // Retrieve the current Firebase user and extract the UID.
+  final fbAuth.User? currentUser = fbAuth.FirebaseAuth.instance.currentUser;
+  final String uid = currentUser?.uid ?? '';
+
+  return ListView(
+    children: [
+      _buildListTile(
+        'My Missions',
+        'View your missions progress',
+        Icons.emoji_events,
+        () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MissionsScreen(
+              userId: uid, // Use the retrieved uid
+              storeId: "Oceanside_store1", // Example store id
+              storeLatitude: 33.15965,
+              storeLongitude: -117.2048917,
+              storeCity: "Oceanside",
+              scannedStoreIds: <String>{},
+              themeProvider: Provider.of<ThemeProvider>(context, listen: false),
+            ),
+          ),
         ),
-        _buildListTile(
-          'Get Help',
-          'Access Q/A support',
-          Icons.help_outline,
-          () => Navigator.pushNamed(context, '/q_a'),
+      ),
+      _buildListTile(
+        'Get Help',
+        'Access Q/A support',
+        Icons.help_outline,
+        () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const HelpScreen()),
         ),
-        _buildListTile(
-          'Saved Stores',
-          'View your starred stores',
-          Icons.store,
-          () => Navigator.pushNamed(context, '/savedStores'),
+      ),
+      _buildListTile(
+        'Saved Stores',
+        'View your starred stores',
+        Icons.store,
+        () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => SavedStoresScreen(uid: uid)),
         ),
-        _buildListTile(
-          'Privacy',
-          'Learn about how your location is used',
-          Icons.privacy_tip_outlined,
-          () => _showPrivacyDialog(context),
-        ),
-      ],
-    );
-  }
+      ),
+      _buildListTile(
+        'Privacy',
+        'Learn about how your location is used',
+        Icons.privacy_tip_outlined,
+        () => _showPrivacyDialog(context),
+      ),
+    ],
+  );
+}
+
 
   // Build the Settings tab.
   Widget _buildSettingsTab(BuildContext context) {
-    // Obtain the theme provider to get current theme values.
     final themeProvider = Provider.of<ThemeProvider>(context);
     return ListView(
       children: [
@@ -173,7 +246,6 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Obtain theme values from ThemeProvider.
     final themeProvider = Provider.of<ThemeProvider>(context);
     return Scaffold(
       appBar: PreferredSize(
@@ -219,7 +291,7 @@ class ProfilePage extends StatelessWidget {
         color: Theme.of(context).colorScheme.surface,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
+          children: [
             IconButton(
               icon: const Icon(Icons.star_outline, size: 21.0),
               tooltip: 'Visits',
@@ -230,17 +302,14 @@ class ProfilePage extends StatelessWidget {
               tooltip: 'Featured',
               onPressed: () => Navigator.pushNamed(context, '/friends'),
             ),
-             IconButton(
+            IconButton(
               icon: const Icon(Icons.home_outlined, size: 21.0),
               tooltip: 'Home',
               onPressed: () {
-                final fbAuth.User? user =
-                    fbAuth.FirebaseAuth.instance.currentUser;
+                final fbAuth.User? user = fbAuth.FirebaseAuth.instance.currentUser;
                 if (user != null && user.uid.isNotEmpty) {
-                  Navigator.pushReplacementNamed(context, '/main',
-                      arguments: user.uid);
+                  Navigator.pushReplacementNamed(context, '/main', arguments: user.uid);
                 } else {
-                  // If for some reason there is no current user, fallback to login.
                   Navigator.pushReplacementNamed(context, '/login');
                 }
               },
@@ -254,7 +323,7 @@ class ProfilePage extends StatelessWidget {
               icon: const Icon(Icons.person_outline, size: 21.0),
               tooltip: 'Profile',
               onPressed: () {
-                // Already on this page.
+                // Already on the profile page.
               },
             ),
           ],

@@ -2,13 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:confetti/confetti.dart';
+// Import ThemeProvider (if needed for theme colors in badges)
 import 'package:test/services/theme_provider.dart';
 
 class Mission {
   final String title;
   final String description;
-  final int goal;
-  final int current;
+  final int goal;    // Target progress for this mission stage
+  final int current; // Current progress for this mission stage
 
   const Mission({
     required this.title,
@@ -58,63 +60,99 @@ class SegmentedProgressIndicator extends StatelessWidget {
   }
 }
 
+/// Helper function to convert a store ID (assumed "City_storeX") 
+/// into a friendly "City, StateAbbr" string.
+/// The maps can be extended as needed.
+String shortenStoreName(String storeId) {
+  // Extract the city name from the ID.
+  String city = storeId.split("_")[0];
+  String lowerCity = city.toLowerCase();
+
+  // Map from city (lowercase) to full state.
+  Map<String, String> cityToState = {
+    "oceanside": "california",
+    "sanmarcos": "california",
+    "vista": "california",
+    // Add more mappings as needed.
+  };
+
+  // Map from full state (lowercase) to abbreviation.
+  Map<String, String> stateAbbreviations = {
+    "california": "CA",
+    "arizona": "AZ",
+    // Add more states as needed.
+  };
+
+  String stateFull = cityToState[lowerCity] ?? "";
+  String stateAbbr = stateAbbreviations[stateFull.toLowerCase()] ?? "";
+  return "$city, $stateAbbr";
+}
+
+/// Updated BadgeSticker with a light-blue, sticker-like design.
+/// Uses ThemeProvider colors if needed.
 class BadgeSticker extends StatelessWidget {
-  final String storeName;
+  final String storeId;
   final String timestamp;
 
   const BadgeSticker({
     Key? key,
-    required this.storeName,
-    required this.timestamp, required String storeId,
+    required this.storeId,
+    required this.timestamp,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Try to parse the timestamp; use current date if parsing fails.
+    // Parse the timestamp.
     DateTime visitDate = DateTime.tryParse(timestamp) ?? DateTime.now();
-    // Simple formatting: day/month/year.
-    final formattedDate = "${visitDate.day}/${visitDate.month}/${visitDate.year}";
+    // Format as month/day/year.
+    final formattedDate = "${visitDate.month}/${visitDate.day}/${visitDate.year}";
+    // Convert the storeId to a friendly label.
+    final displayName = shortenStoreName(storeId);
+
+    // Optionally, you can pull colors from the ThemeProvider.
+    // For example:
+    // final themeProvider = Provider.of<ThemeProvider>(context);
+    // Use themeProvider.someColor if defined.
 
     return Container(
-      width: 80, // slightly larger for a sticker look
-      height: 80,
+      width: 70,
+      height: 70,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        // A fun gradient background for a cartoon feel.
+        // Light-blue gradient background.
         gradient: const LinearGradient(
-          colors: [Color.fromARGB(255, 147, 91, 52), Color.fromRGBO(213, 185, 142, 1)],
+          colors: [Color.fromARGB(255, 0, 164, 240), Color(0xFF81D4FA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        // Thicker, bold border.
+        // Thinner border (adjust as needed) with a light color.
         border: Border.all(
-          color: Colors.black,
-          width: 3,
+          color: const Color.fromARGB(255, 156, 193, 225),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.4),
-            blurRadius: 6,
-            offset: const Offset(2, 4),
+            blurRadius: 4,
+            offset: const Offset(1, 2),
           ),
         ],
       ),
-      // A slight rotation for a playful effect.
       child: Transform.rotate(
-        angle: 0.05, // ~2.9 degrees rotation; adjust as needed.
+        angle: 0.05,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.store,
-              size: 20,
+              size: 18,
               color: Colors.black,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
-              storeName,
+              displayName,
               style: const TextStyle(
-                fontSize: 9,
+                fontSize: 8,
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
               ),
@@ -124,7 +162,7 @@ class BadgeSticker extends StatelessWidget {
             Text(
               formattedDate,
               style: const TextStyle(
-                fontSize: 10,
+                fontSize: 7,
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
               ),
@@ -137,10 +175,10 @@ class BadgeSticker extends StatelessWidget {
   }
 }
 
-
-
+/// MissionsScreen shows mission progress sequentially.
+/// Only the active mission updates (others remain either fully complete or zero).
 class MissionsScreen extends StatefulWidget {
-  final String userId; // Real UID from FirebaseAuth.
+  final String userId; // UID from FirebaseAuth.
   final String storeId;
   final double storeLatitude;
   final double storeLongitude;
@@ -169,9 +207,14 @@ class _MissionsScreenState extends State<MissionsScreen> {
   final double thresholdMeters = 3.05; // ~10 feet
   Timer? _locationCheckTimer;
 
+  // Confetti is currently commented out.
+  // late ConfettiController _confettiController;
+  // bool _hasPlayedConfetti = false;
+
   @override
   void initState() {
     super.initState();
+    // _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _locationCheckTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _checkLocationAndRegisterVisit();
     });
@@ -181,14 +224,14 @@ class _MissionsScreenState extends State<MissionsScreen> {
   void dispose() {
     _visitTimer?.cancel();
     _locationCheckTimer?.cancel();
+    // _confettiController.dispose();
     super.dispose();
   }
 
   void _checkLocationAndRegisterVisit() async {
     Position currentPosition;
     try {
-      currentPosition = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+      currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     } catch (e) {
       print("Error obtaining position: $e");
       return;
@@ -203,8 +246,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
       _visitTimer ??= Timer(const Duration(seconds: 30), () async {
         Position updatedPosition;
         try {
-          updatedPosition = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high);
+          updatedPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
         } catch (e) {
           print("Error obtaining updated position: $e");
           _visitTimer = null;
@@ -263,48 +305,52 @@ class _MissionsScreenState extends State<MissionsScreen> {
     }
   }
 
+  /// Build missions sequentially using cumulative targets.
   List<Mission> buildMissions(int uniqueCount) {
-    return [
-      Mission(
-        title: "Visit 3 Boba Stores",
-        description: "Visit three different boba stores to unlock your reward!",
-        current: uniqueCount.clamp(0, 3),
-        goal: 3,
-      ),
-      Mission(
-        title: "Visit 5 Boba Stores",
-        description: "Visit five different boba stores to unlock your bonus!",
-        current: uniqueCount.clamp(0, 5),
-        goal: 5,
-      ),
-      Mission(
-        title: "Visit 10 Boba Stores",
-        description: "Visit ten different boba stores for a major reward!",
-        current: uniqueCount.clamp(0, 10),
-        goal: 10,
-      ),
-      Mission(
-        title: "Visit 15 Boba Stores",
-        description: "Visit fifteen boba stores to unlock an even bigger bonus!",
-        current: uniqueCount.clamp(0, 15),
-        goal: 15,
-      ),
-      Mission(
-        title: "Visit 20 Boba Stores",
-        description: "Visit twenty boba stores for the ultimate reward!",
-        current: uniqueCount.clamp(0, 20),
-        goal: 20,
-      ),
-    ];
+    final List<int> cumulativeGoals = [3, 5, 10, 15, 20];
+    List<Mission> missions = [];
+    // Determine active mission index: the first goal where uniqueCount < goal.
+    int activeIndex = cumulativeGoals.indexWhere((goal) => uniqueCount < goal);
+    if (activeIndex == -1) activeIndex = cumulativeGoals.length; // All complete.
+    for (int i = 0; i < cumulativeGoals.length; i++) {
+      int missionGoal;
+      int current;
+      if (i == 0) {
+        missionGoal = cumulativeGoals[0];
+        if (uniqueCount >= cumulativeGoals[0]) {
+          current = cumulativeGoals[0];
+        } else if (i == activeIndex) {
+          current = uniqueCount;
+        } else {
+          current = 0;
+        }
+      } else {
+        missionGoal = cumulativeGoals[i] - cumulativeGoals[i - 1];
+        if (uniqueCount >= cumulativeGoals[i]) {
+          current = missionGoal;
+        } else if (i == activeIndex) {
+          current = uniqueCount - cumulativeGoals[i - 1];
+          if (current > missionGoal) current = missionGoal;
+        } else {
+          current = 0;
+        }
+      }
+      missions.add(Mission(
+        title: "Visit ${cumulativeGoals[i]} Boba Stores",
+        description: "Visit ${cumulativeGoals[i]} different boba stores to unlock your reward!",
+        current: current,
+        goal: missionGoal,
+      ));
+    }
+    return missions;
   }
 
-  bool isMissionUnlocked(int missionIndex, int uniqueCount) {
-    if (missionIndex == 0) return true;
-    if (missionIndex == 1) return uniqueCount >= 3;
-    if (missionIndex == 2) return uniqueCount >= 5;
-    if (missionIndex == 3) return uniqueCount >= 10;
-    if (missionIndex == 4) return uniqueCount >= 15;
-    return false;
+  /// Only the active mission is interactive.
+  bool isMissionActive(int missionIndex, int uniqueCount) {
+    final List<int> cumulativeGoals = [3, 5, 10, 15, 20];
+    int activeIndex = cumulativeGoals.indexWhere((goal) => uniqueCount < goal);
+    if (activeIndex == -1) activeIndex = cumulativeGoals.length;
+    return missionIndex == activeIndex;
   }
 
   void showMissionDetails(Mission mission) {
@@ -326,11 +372,11 @@ class _MissionsScreenState extends State<MissionsScreen> {
     );
   }
 
-  Widget buildMissionRow(Mission mission, bool unlocked) {
+  Widget buildMissionRow(Mission mission, bool active) {
     Widget missionRow = Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: unlocked ? Colors.white : Colors.grey.shade200,
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -340,19 +386,21 @@ class _MissionsScreenState extends State<MissionsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(mission.title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w300,
-                        color: unlocked ? Colors.black : Colors.grey,
-                      )),
+                  Text(
+                    mission.title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w300,
+                      color: active ? Colors.black : Colors.grey,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     mission.description,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w300,
-                      color: unlocked ? Colors.black87 : Colors.grey,
+                      color: active ? Colors.black87 : Colors.grey,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -365,14 +413,17 @@ class _MissionsScreenState extends State<MissionsScreen> {
               flex: 1,
               child: Column(
                 children: [
-                  SegmentedProgressIndicator(current: mission.current, goal: mission.goal, spacing: 4),
+                  SegmentedProgressIndicator(
+                      current: mission.current, goal: mission.goal, spacing: 4),
                   const SizedBox(height: 4),
-                  Text("${mission.current}/${mission.goal}",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w300,
-                        color: unlocked ? Colors.black : Colors.grey,
-                      )),
+                  Text(
+                    "${mission.current}/${mission.goal}",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      color: active ? Colors.black : Colors.grey,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -381,7 +432,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
       ),
     );
 
-    if (!unlocked) {
+    if (mission.current == mission.goal) {
+      // Mission is fully complete; overlay a check mark.
       missionRow = Stack(
         children: [
           missionRow,
@@ -391,7 +443,27 @@ class _MissionsScreenState extends State<MissionsScreen> {
                 color: Colors.white.withOpacity(0.6),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(child: Icon(Icons.lock, size: 40, color: Colors.grey)),
+              child: const Center(
+                child: Icon(Icons.check, size: 40, color: Colors.green),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (!active) {
+      // Not active, show lock overlay.
+      missionRow = Stack(
+        children: [
+          missionRow,
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Icon(Icons.lock, size: 40, color: Colors.grey),
+              ),
             ),
           ),
         ],
@@ -409,8 +481,10 @@ class _MissionsScreenState extends State<MissionsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w300)),
-        content: Text(content, style: const TextStyle(fontWeight: FontWeight.w300)),
+        title:
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w300)),
+        content:
+            Text(content, style: const TextStyle(fontWeight: FontWeight.w300)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -430,100 +504,145 @@ class _MissionsScreenState extends State<MissionsScreen> {
     print("Missions screen: Listening at userVisits/${widget.userId}");
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Missions", style: TextStyle(fontWeight: FontWeight.w300)),
+        title:
+            const Text("Missions", style: TextStyle(fontWeight: FontWeight.w300)),
         centerTitle: true,
       ),
-      body: StreamBuilder<DatabaseEvent>(
-        stream: userVisitsRef.onValue,
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            print("Missions Stream Snapshot: ${snapshot.data!.snapshot.value}");
-          } else {
-            print("Missions Stream: No data yet.");
-          }
-          int uniqueCount = 0;
-          List<dynamic> visitedStores = [];
-          if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-            final Map<dynamic, dynamic> visitsMap =
-                snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-            uniqueCount = visitsMap.keys.length;
-            visitedStores = visitsMap.keys.toList();
-            print("Found $uniqueCount visits: $visitedStores");
-          }
-          List<Mission> missions = buildMissions(uniqueCount);
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Total Visits: $uniqueCount",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w300)),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Stack(
+        children: [
+          StreamBuilder<DatabaseEvent>(
+            stream: userVisitsRef.onValue,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                print(
+                    "Missions Stream Snapshot: ${snapshot.data!.snapshot.value}");
+              } else {
+                print("Missions Stream: No data yet.");
+              }
+              int uniqueCount = 0;
+              List<dynamic> visitedStores = [];
+              Map<dynamic, dynamic> visitsMap = {};
+              if (snapshot.hasData &&
+                  snapshot.data!.snapshot.value != null) {
+                visitsMap =
+                    snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+                uniqueCount = visitsMap.keys.length;
+                visitedStores = visitsMap.keys.toList();
+                print("Found $uniqueCount visits: $visitedStores");
+                // Comment out confetti for now:
+                // final cumulativeGoals = [3, 5, 10, 15, 20];
+                // if (cumulativeGoals.contains(uniqueCount) && !_hasPlayedConfetti) {
+                //   _confettiController.play();
+                //   _hasPlayedConfetti = true;
+                // }
+              }
+              List<Mission> missions = buildMissions(uniqueCount);
+              return SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text("Total Visits: $uniqueCount",
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w300)),
+                      const SizedBox(height: 16),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("Badges",
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w300)),
-                          IconButton(
-                            icon: const Icon(Icons.help_outline, size: 20),
-                            onPressed: () {
-                              showInfoDialog("Badges", "Badges are icons that show each store you’ve visited.");
-                            },
+                          Row(
+                            children: [
+                              const Text("Badges",
+                                  style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w300)),
+                              IconButton(
+                                icon: const Icon(Icons.help_outline, size: 20),
+                                onPressed: () {
+                                  showInfoDialog("Badges",
+                                      "Badges are sticker-like icons that show the store's city, state, and the date the badge was obtained.");
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: visitedStores.length,
-                      separatorBuilder: (context, index) => const SizedBox(width: 10),
-                      itemBuilder: (context, index) {
-                        String storeId = visitedStores[index].toString();
-                        return BadgeSticker(storeId: storeId, storeName: '', timestamp: '',);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 80, // Adjusted for smaller badge size.
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: visitedStores.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 10),
+                          itemBuilder: (context, index) {
+                            String storeId =
+                                visitedStores[index].toString();
+                            String timestamp =
+                                visitsMap[storeId]["timestamp"] as String? ?? "";
+                            return BadgeSticker(
+                              storeId: storeId,
+                              timestamp: timestamp,
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("Missions",
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w300)),
-                          IconButton(
-                            icon: const Icon(Icons.help_outline, size: 20),
-                            onPressed: () {
-                              showInfoDialog("Missions", "Missions track your progress in visiting different stores. Tap an active mission for details.");
-                            },
+                          Row(
+                            children: [
+                              const Text("Missions",
+                                  style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w300)),
+                              IconButton(
+                                icon: const Icon(Icons.help_outline, size: 20),
+                                onPressed: () {
+                                  showInfoDialog("Missions",
+                                      "Missions track your progress in visiting stores sequentially. Only the active mission updates until fully complete; completed missions show a check mark.");
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: missions.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          bool active = isMissionActive(index, uniqueCount);
+                          return buildMissionRow(missions[index], active);
+                        },
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: missions.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      bool unlocked = isMissionUnlocked(index, uniqueCount);
-                      return buildMissionRow(missions[index], unlocked);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+                ),
+              );
+            },
+          ),
+          // Commenting out the confetti widget for now.
+          // Align(
+          //   alignment: Alignment.topCenter,
+          //   child: ConfettiWidget(
+          //     confettiController: _confettiController,
+          //     blastDirectionality: BlastDirectionality.explosive,
+          //     shouldLoop: false,
+          //     colors: const [
+          //       Colors.pink,
+          //       Colors.blue,
+          //       Colors.orange,
+          //       Colors.purple,
+          //       Colors.green,
+          //     ],
+          //   ),
+          // ),
+        ],
       ),
     );
   }
