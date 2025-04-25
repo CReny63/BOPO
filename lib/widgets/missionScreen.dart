@@ -155,8 +155,8 @@ class _BadgeCoinState extends State<BadgeCoin>
                   end: Alignment.bottomRight,
                 ),
           border: Border.all(
-            color: isDark ? Color(0xFF311B92) : Color(0xFF01579B),
-            width: size * 0.05,
+            color: isDark ? Color.fromARGB(255, 0, 0, 0) : Color.fromARGB(255, 255, 255, 255),
+            width: size * 0.025,
           ),
           boxShadow: [
             BoxShadow(
@@ -212,8 +212,8 @@ class _BadgeCoinState extends State<BadgeCoin>
               fontSize: size * 0.10,
               fontWeight: FontWeight.bold,
               color: isDark
-                  ? Color.fromARGB(255, 150, 146, 228)
-                  : Color.fromARGB(255, 100, 2, 152),
+                  ? Color.fromARGB(255, 255, 255, 255)
+                  : Color.fromARGB(255, 0, 0, 0),
             ),
             textAlign: TextAlign.center,
           ),
@@ -542,7 +542,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
                     Text('Badges',
                         style: TextStyle(
                             fontSize: 20,
-                            fontWeight: FontWeight.w300,
+                            fontWeight: FontWeight.w200,
                             color: isDark ? Colors.white : Colors.black)),
                     IconButton(
                       icon: Icon(Icons.help_outline,
@@ -559,7 +559,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: visitsMap.keys.length,
-                    separatorBuilder: (_, __) => SizedBox(width: 12),
+                    separatorBuilder: (_, __) => SizedBox(width: 3),
                     itemBuilder: (ctx, i) {
                       final sid = visitsMap.keys.elementAt(i);
                       final ts = visitsMap[sid]['timestamp'] as String;

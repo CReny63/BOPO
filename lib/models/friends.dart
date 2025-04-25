@@ -1,298 +1,251 @@
 import 'dart:async';
+import 'dart:math';
+
 import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:flutter/material.dart';
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:test/services/theme_provider.dart';
-import 'package:test/user.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
+import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
-
-import '../user.dart';
 
 class FeaturedPage extends StatefulWidget {
   const FeaturedPage({Key? key}) : super(key: key);
-
   @override
   _FeaturedPageState createState() => _FeaturedPageState();
 }
 
 class _FeaturedPageState extends State<FeaturedPage> {
   final StoreService _storeService = StoreService();
-  List<BobaStore> _nearbyStores = [];
   Position? _currentPosition;
+  List<BobaStore> _nearbyStores = [];
+  String? _activeStoreName;
+  String? _activeStoreLocation; // "City, ST"
   bool _isLoading = true;
+
+  // Flavor roulette
+  final List<String> _flavors = [
+    "Matcha Latte + Tapioca Boba",
+    "Thai Tea + Mango Pearls",
+    "Honeydew Tea + Aloe Vera",
+    "Taro Latte + Crystal Boba",
+    "Brown Sugar Milk + Cold Brew Jelly",
+    "Strawberry Smoothie + Strawberry Jelly",
+    "Oolong Tea + Lychee Jelly",
+    "Chocolate Milk Tea + Coffee Jelly",
+  ];
+  String? _selectedFlavor;
+  bool _spinning = false;
 
   @override
   void initState() {
     super.initState();
-    _getUserLocation().then((_) {
-      _fetchNearbyStores();
-    });
+    _initLocationAndStores();
   }
 
-  Future<void> _getUserLocation() async {
+  Future<void> _initLocationAndStores() async {
     try {
-      Position pos = await Geolocator.getCurrentPosition(
+      _currentPosition = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
-      setState(() {
-        _currentPosition = pos;
-      });
-      debugPrint("User position: $_currentPosition");
-    } catch (e) {
-      debugPrint("Error fetching user location: $e");
-    }
-  }
-
-  Future<void> _fetchNearbyStores() async {
-    if (_currentPosition == null) return;
-    try {
-      // Fetch all stores from your service.
-      List<BobaStore> stores = await _storeService.fetchNearbyStores(
+      final stores = await _storeService.fetchNearbyStores(
         latitude: _currentPosition!.latitude,
         longitude: _currentPosition!.longitude,
         radiusInMeters: 5000,
       );
-      debugPrint("Fetched ${stores.length} stores from service.");
-
-      // Sort stores by distance (closest first).
       stores.sort((a, b) {
-        double distanceA = Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          a.latitude,
-          a.longitude,
-        );
-        double distanceB = Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          b.latitude,
-          b.longitude,
-        );
-        return distanceA.compareTo(distanceB);
+        final da = Geolocator.distanceBetween(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            a.latitude,
+            a.longitude);
+        final db = Geolocator.distanceBetween(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            b.latitude,
+            b.longitude);
+        return da.compareTo(db);
       });
-
-      // First, collect unique stores by 'namefeat'.
-      List<BobaStore> uniqueStores = [];
-      Set<String> seenFeatured = {};
-      for (BobaStore store in stores) {
-        String feat = store.namefeat.trim();
-        if (feat.isNotEmpty && !seenFeatured.contains(feat)) {
-          uniqueStores.add(store);
-          seenFeatured.add(feat);
-          debugPrint(
-              "Added unique store ${store.id} with featured drink: '$feat'");
-        }
-      }
-      debugPrint("Unique featured stores count: ${uniqueStores.length}");
-
-      // If there are fewer than 8 unique items, add additional stores from sorted list.
-      if (uniqueStores.length < 8) {
-        for (BobaStore store in stores) {
-          if (!uniqueStores.contains(store)) {
-            uniqueStores.add(store);
-            if (uniqueStores.length >= 8) break;
-          }
-        }
-        debugPrint(
-            "Filled up to ${uniqueStores.length} stores after adding duplicates.");
-      }
-
-      // Limit to exactly 8 items if there are more.
-      if (uniqueStores.length > 8) {
-        uniqueStores = uniqueStores.sublist(0, 8);
-      }
-
       setState(() {
-        _nearbyStores = uniqueStores;
+        _nearbyStores = stores.take(8).toList();
+        _determineActiveStore();
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint("Error fetching nearby stores: $e");
+      debugPrint("Error fetching location/stores: $e");
+      setState(() => _isLoading = false);
     }
   }
 
-  /// Helper function to construct the asset image path.
-  String _getAssetPath(String imagefeat) {
-    String path = imagefeat;
-    debugPrint("Raw imagefeat: '$imagefeat'");
-    if (!path.startsWith('assets/')) {
-      path = 'assets/$path';
+  void _determineActiveStore() {
+    if (_currentPosition == null || _nearbyStores.isEmpty) return;
+    const threshold = 20.0;
+    double bestDist = double.infinity;
+    BobaStore? best;
+    for (var s in _nearbyStores) {
+      final d = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          s.latitude,
+          s.longitude);
+      if (d < bestDist) {
+        bestDist = d;
+        best = s;
+      }
     }
-    if (!path.endsWith('.png')) {
-      path = '$path.png';
-    }
-    debugPrint("Computed asset path: '$path'");
-    return path;
-  }
-
-  /// Launches Google Maps for the given address.
-  Future<void> _launchMaps(String address) async {
-    final query = Uri.encodeComponent(address);
-    final url = 'https://www.google.com/maps/search/?api=1&query=$query';
-    if (await canLaunch(url)) {
-      await launch(url);
+    if (best != null && bestDist <= threshold) {
+      _activeStoreName = best.name;
+      _activeStoreLocation = "${best.city}, ${best.state}";
     } else {
-      debugPrint("Could not launch Maps for address: $address");
+      _activeStoreName = null;
+      _activeStoreLocation = null;
     }
+  }
+
+  Future<void> _spin() async {
+    if (_spinning) return;
+    setState(() {
+      _spinning = true;
+      _selectedFlavor = null;
+    });
+    await Future.delayed(const Duration(milliseconds: 800));
+    final rnd = Random();
+    setState(() {
+      _selectedFlavor = _flavors[rnd.nextInt(_flavors.length)];
+      _spinning = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Obtain the theme values from ThemeProvider.
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    final theme = Provider.of<ThemeProvider>(context);
 
     return Scaffold(
-      // Use your original AppBarContent with the three-line menu and light/dark toggle.
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: AppBarContent(
-          toggleTheme: themeProvider.toggleTheme,
-          isDarkMode: themeProvider.isDarkMode,
+          toggleTheme: theme.toggleTheme,
+          isDarkMode: theme.isDarkMode,
         ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.brown),
-              ),
-            )
-          : _nearbyStores.isEmpty
-              ? Center(child: Text("No nearby stores found."))
-              : CarouselSlider.builder(
-                  itemCount: _nearbyStores.length,
-                  itemBuilder: (context, index, realIndex) {
-                    final store = _nearbyStores[index];
-
-                    // Debug prints for each store.
-                    debugPrint(
-                        "Building carousel item for store id: ${store.id}");
-                    debugPrint("Store imagefeat: '${store.imagefeat}'");
-                    debugPrint("Store namefeat: '${store.namefeat}'");
-
-                    // Use the new attribute imagefeat for the image.
-                    final imagePath = _getAssetPath(store.imagefeat);
-
-                    // Use the new attribute namefeat for the bottom overlay.
-                    final featuredName = store.namefeat;
-
-                    // Use store.name as the top overlay (e.g., drink name).
-                    final drinkName = store.name;
-
-                    return Card(
-                      elevation: 4,
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_activeStoreName != null) ...[
+                      Text(
+                        _activeStoreName!,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: theme.isDarkMode ? Colors.white : Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      child: Stack(
+                      const SizedBox(height: 4),
+                      Text(
+                        _activeStoreLocation!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: theme.isDarkMode ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    GestureDetector(
+                      onTap: _spin,
+                      child: SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: _spinning
+                            ? CircularProgressIndicator(
+                                strokeWidth: 6,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    theme.isDarkMode ? Colors.white : Colors.brown),
+                              )
+                            : Image.asset(
+                                'assets/spinner_cup.png',
+                                fit: BoxFit.contain,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_selectedFlavor == null && !_spinning)
+                      Text(
+                        "Tap the cup to spin for a flavor!",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: theme.isDarkMode ? Colors.white70 : Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    if (_selectedFlavor != null)
+                      Column(
                         children: [
-                          // Background: Drink image from imagefeat.
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.asset(
-                              imagePath,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
+                          Text(
+                            _selectedFlavor!,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: theme.isDarkMode ? Colors.white : Colors.black,
                             ),
+                            textAlign: TextAlign.center,
                           ),
-                          // Top overlay: Drink Name in larger font.
-                          Positioned(
-                            top: 10,
-                            left: 10,
-                            right: 10,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              color: Colors.black54,
-                              child: Text(
-                                drinkName,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                          // Bottom overlay: Featured name (namefeat).
-                          Positioned(
-                            bottom: 10,
-                            left: 10,
-                            right: 10,
-                            child: InkWell(
-                              onTap: () {
-                                // Optionally, you could launch maps using another attribute.
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                color: Colors.black54,
-                                child: Text(
-                                  featuredName,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(color: Colors.white),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _spin,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text("Spin Again"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.isDarkMode ? Colors.grey[800] : Colors.brown,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                  options: CarouselOptions(
-                    height: MediaQuery.of(context).size.height * 0.75,
-                    enlargeCenterPage: true,
-                    enableInfiniteScroll: false,
-                    autoPlay: true,
-                  ),
+                  ],
                 ),
+              ),
+            ),
       bottomNavigationBar: BottomAppBar(
         color: Theme.of(context).colorScheme.surface,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             IconButton(
-              icon: const Icon(Icons.star_outline, size: 21.0),
+              icon: const Icon(Icons.star_outline),
               tooltip: 'Visits',
               onPressed: () => Navigator.pushNamed(context, '/review'),
             ),
             IconButton(
-              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
+              icon: const Icon(Icons.emoji_food_beverage_outlined),
               tooltip: 'Featured',
-              onPressed: () => Navigator.pushNamed(context, '/friends'),
+              onPressed: () {},
             ),
             IconButton(
-              icon: const Icon(Icons.home_outlined, size: 21.0),
+              icon: const Icon(Icons.home_outlined),
               tooltip: 'Home',
               onPressed: () {
-                final fbAuth.User? user =
-                    fbAuth.FirebaseAuth.instance.currentUser;
+                final fbAuth.User? user = fbAuth.FirebaseAuth.instance.currentUser;
                 if (user != null && user.uid.isNotEmpty) {
-                  Navigator.pushReplacementNamed(context, '/main',
-                      arguments: user.uid);
+                  Navigator.pushReplacementNamed(context, '/main', arguments: user.uid);
                 } else {
-                  // If for some reason there is no current user, fallback to login.
                   Navigator.pushReplacementNamed(context, '/login');
                 }
               },
             ),
             IconButton(
-              icon: const Icon(Icons.map_outlined, size: 21.0),
+              icon: const Icon(Icons.map_outlined),
               tooltip: 'Map',
               onPressed: () => Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(
-              icon: const Icon(Icons.person_outline, size: 21.0),
+              icon: const Icon(Icons.person_outline),
               tooltip: 'Profile',
               onPressed: () => Navigator.pushNamed(context, '/profile'),
             ),
@@ -302,3 +255,4 @@ class _FeaturedPageState extends State<FeaturedPage> {
     );
   }
 }
+

@@ -35,7 +35,7 @@ void initState() {
   super.initState();
   print("StoreDetailsScreen initialized with UID: ${widget.userId}");
   _currentUserPosition = widget.userPosition;
-  _locationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+  _locationMonitorTimer = Timer.periodic(Duration(seconds: 5), (timer) {
     _checkAndStartCountdown();
   });
 }
