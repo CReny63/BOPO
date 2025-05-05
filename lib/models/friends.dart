@@ -54,16 +54,10 @@ class _FeaturedPageState extends State<FeaturedPage> {
         radiusInMeters: 5000,
       );
       stores.sort((a, b) {
-        final da = Geolocator.distanceBetween(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            a.latitude,
-            a.longitude);
-        final db = Geolocator.distanceBetween(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            b.latitude,
-            b.longitude);
+        final da = Geolocator.distanceBetween(_currentPosition!.latitude,
+            _currentPosition!.longitude, a.latitude, a.longitude);
+        final db = Geolocator.distanceBetween(_currentPosition!.latitude,
+            _currentPosition!.longitude, b.latitude, b.longitude);
         return da.compareTo(db);
       });
       setState(() {
@@ -83,11 +77,8 @@ class _FeaturedPageState extends State<FeaturedPage> {
     double bestDist = double.infinity;
     BobaStore? best;
     for (var s in _nearbyStores) {
-      final d = Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          s.latitude,
-          s.longitude);
+      final d = Geolocator.distanceBetween(_currentPosition!.latitude,
+          _currentPosition!.longitude, s.latitude, s.longitude);
       if (d < bestDist) {
         bestDist = d;
         best = s;
@@ -152,7 +143,9 @@ class _FeaturedPageState extends State<FeaturedPage> {
                         _activeStoreLocation!,
                         style: TextStyle(
                           fontSize: 14,
-                          color: theme.isDarkMode ? Colors.white70 : Colors.black54,
+                          color: theme.isDarkMode
+                              ? Colors.white70
+                              : Colors.black54,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -166,7 +159,9 @@ class _FeaturedPageState extends State<FeaturedPage> {
                             ? CircularProgressIndicator(
                                 strokeWidth: 6,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                    theme.isDarkMode ? Colors.white : Colors.brown),
+                                    theme.isDarkMode
+                                        ? Colors.white
+                                        : Colors.brown),
                               )
                             : Image.asset(
                                 'assets/spinner_cup.png',
@@ -180,7 +175,9 @@ class _FeaturedPageState extends State<FeaturedPage> {
                         "Tap the cup to spin for a flavor!",
                         style: TextStyle(
                           fontSize: 16,
-                          color: theme.isDarkMode ? Colors.white70 : Colors.black87,
+                          color: theme.isDarkMode
+                              ? Colors.white70
+                              : Colors.black87,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -192,7 +189,9 @@ class _FeaturedPageState extends State<FeaturedPage> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: theme.isDarkMode ? Colors.white : Colors.black,
+                              color: theme.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -202,8 +201,11 @@ class _FeaturedPageState extends State<FeaturedPage> {
                             icon: const Icon(Icons.refresh),
                             label: const Text("Spin Again"),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.isDarkMode ? Colors.grey[800] : Colors.brown,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              backgroundColor: theme.isDarkMode
+                                  ? Colors.grey[800]
+                                  : Colors.brown,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
                             ),
                           ),
                         ],
@@ -218,36 +220,41 @@ class _FeaturedPageState extends State<FeaturedPage> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             IconButton(
-              icon: const Icon(Icons.star_outline),
+              icon: const Icon(Icons.star_outline, size: 21.0),
               tooltip: 'Visits',
               onPressed: () => Navigator.pushNamed(context, '/review'),
             ),
             IconButton(
-              icon: const Icon(Icons.emoji_food_beverage_outlined),
+              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
               tooltip: 'Featured',
               onPressed: () {},
             ),
             IconButton(
-              icon: const Icon(Icons.home_outlined),
+              icon: const Icon(Icons.home_outlined, size: 21.0),
               tooltip: 'Home',
               onPressed: () {
-                final fbAuth.User? user = fbAuth.FirebaseAuth.instance.currentUser;
+                final fbAuth.User? user =
+                    fbAuth.FirebaseAuth.instance.currentUser;
                 if (user != null && user.uid.isNotEmpty) {
-                  Navigator.pushReplacementNamed(context, '/main', arguments: user.uid);
+                  Navigator.pushReplacementNamed(context, '/main',
+                      arguments: user.uid);
                 } else {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
               },
             ),
             IconButton(
-              icon: const Icon(Icons.map_outlined),
+              icon: const Icon(Icons.map_outlined, size: 21.0),
               tooltip: 'Map',
               onPressed: () => Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(
-              icon: const Icon(Icons.person_outline),
+              icon: const Icon(Icons.person_outline, size: 21.0),
               tooltip: 'Profile',
-              onPressed: () => Navigator.pushNamed(context, '/profile'),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/profile',
+              ),
             ),
           ],
         ),
@@ -255,4 +262,3 @@ class _FeaturedPageState extends State<FeaturedPage> {
     );
   }
 }
-

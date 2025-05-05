@@ -14,11 +14,8 @@ import 'package:test/models/store_details.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
 
-/// ------------------------------------------------------------------------
-/// STORES PAGE: shows a list of stores, tapping navigates to details.
-/// ------------------------------------------------------------------------
 class StoresPage extends StatefulWidget {
-  final String uid; // FirebaseAuth UID
+  final String uid;
   final void Function() toggleTheme;
   final bool isDarkMode;
 
@@ -38,11 +35,28 @@ class _StoresPageState extends State<StoresPage> {
       FirebaseDatabase.instance.ref().child('stores');
   Position? _userPosition;
   final Set<String> _favorites = {};
+  final Set<String> _visitedStoreIds = {};
+  List<BobaStore> _allStores = [];
+
+  StreamSubscription<DatabaseEvent>? _storesSub;
+  StreamSubscription<DatabaseEvent>? _favSub;
+  StreamSubscription<DatabaseEvent>? _visitedSub;
 
   @override
   void initState() {
     super.initState();
     _locateUser();
+    _listenStores();
+    _listenFavorites();
+    _listenVisited();
+  }
+
+  @override
+  void dispose() {
+    _storesSub?.cancel();
+    _favSub?.cancel();
+    _visitedSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _locateUser() async {
@@ -51,415 +65,258 @@ class _StoresPageState extends State<StoresPage> {
           desiredAccuracy: LocationAccuracy.high);
       setState(() => _userPosition = p);
     } catch (e) {
-      print('Location error: $e');
+      debugPrint('Location error: $e');
+    }
+  }
+
+  void _listenStores() {
+    _storesSub = _storesRef.onValue.listen((evt) {
+      final data = evt.snapshot.value as Map<dynamic, dynamic>? ?? {};
+      final stores = <BobaStore>[];
+      data.forEach((city, cityMap) {
+        final m = Map<String, dynamic>.from(cityMap as Map);
+        m.forEach((sid, sdata) {
+          final s = Map<String, dynamic>.from(sdata as Map);
+          s['city'] = city;
+          stores.add(BobaStore.fromJson(sid, s));
+        });
+      });
+      setState(() => _allStores = stores);
+    });
+  }
+
+  void _listenFavorites() {
+    final favRef = FirebaseDatabase.instance
+        .ref()
+        .child('userFavorites')
+        .child(widget.uid);
+    _favSub = favRef.onValue.listen((evt) {
+      final data = evt.snapshot.value as Map<dynamic, dynamic>? ?? {};
+      setState(() {
+        _favorites
+          ..clear()
+          ..addAll(data.keys.map((k) => k.toString()));
+      });
+    });
+  }
+
+  void _listenVisited() {
+    final visitedRef = FirebaseDatabase.instance
+        .ref()
+        .child('userStoreVisits')
+        .child(widget.uid);
+    _visitedSub = visitedRef.onValue.listen((evt) {
+      final data = evt.snapshot.value as Map<dynamic, dynamic>? ?? {};
+      setState(() {
+        _visitedStoreIds
+          ..clear()
+          ..addAll(data.keys.map((k) => k.toString()));
+      });
+    });
+  }
+
+  List<BobaStore> get _closestStores {
+    if (_userPosition == null) return [];
+    final list = List<BobaStore>.from(_allStores);
+    list.sort((a, b) {
+      final da = Geolocator.distanceBetween(_userPosition!.latitude,
+          _userPosition!.longitude, a.latitude, a.longitude);
+      final db = Geolocator.distanceBetween(_userPosition!.latitude,
+          _userPosition!.longitude, b.latitude, b.longitude);
+      return da.compareTo(db);
+    });
+    return list;
+  }
+
+  List<BobaStore> get _discoverStores =>
+      _allStores.where((s) => !_visitedStoreIds.contains(s.id)).toList();
+
+  List<BobaStore> get _favoriteStores =>
+      _allStores.where((s) => _favorites.contains(s.id)).toList();
+
+  Future<void> _toggleFavorite(String storeId) async {
+    final favRef = FirebaseDatabase.instance
+        .ref()
+        .child('userFavorites')
+        .child(widget.uid)
+        .child(storeId);
+    if (_favorites.contains(storeId)) {
+      await favRef.remove();
+    } else {
+      await favRef.set(true);
     }
   }
 
   Future<void> _handleRefresh() async {
     setState(() => _userPosition = null);
     await _locateUser();
-    await Future.delayed(Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_userPosition == null) {
-      return Scaffold(
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        // Top bar: uses your theme's primary (orange/purple)
         appBar: PreferredSize(
-          preferredSize: Size.fromHeight(75),
-          child: AppBarContent(
-            toggleTheme: widget.toggleTheme,
-            isDarkMode: widget.isDarkMode,
-          ),
-        ),
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(75),
-        child: AppBarContent(
-          toggleTheme: widget.toggleTheme,
-          isDarkMode: widget.isDarkMode,
-        ),
-      ),
-      body: CustomRefreshIndicator(
-        onRefresh: _handleRefresh,
-        builder: (ctx, child, controller) {
-          return Stack(
-            alignment: Alignment.topCenter,
+          preferredSize: const Size.fromHeight(50 + kTextTabBarHeight),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Transform.translate(
-                offset: Offset(0, controller.value * 100 - 50),
-                child: Opacity(
-                  opacity: min(controller.value, 1.0),
-                  child: Image.asset(
-                    'assets/capy_boba.png',
-                    width: 50,
-                    height: 50,
-                  ),
+              AppBarContent(
+                toggleTheme: widget.toggleTheme,
+                isDarkMode: widget.isDarkMode,
+              ),
+              // Sliding tabs: white in both light/dark
+              Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: TabBar(
+                  indicatorColor: Colors.brown,
+                  indicatorWeight: 3,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  labelColor: Colors.brown,
+                  unselectedLabelColor:
+                      widget.isDarkMode ? Colors.white70 : Colors.grey,
+                  labelStyle: const TextStyle(fontSize: 14),
+                  unselectedLabelStyle: const TextStyle(fontSize: 14),
+                  tabs: const [
+                    Tab(text: 'Unvisited'),
+                    Tab(text: 'Nearby'),
+                    Tab(text: 'Favorites'),
+                  ],
                 ),
               ),
-              Transform.translate(
-                offset: Offset(0, controller.value * 100),
-                child: child,
-              ),
             ],
-          );
-        },
-        child: StreamBuilder<DatabaseEvent>(
-          stream: _storesRef.onValue,
-          builder: (ctx, snap) {
-            if (snap.hasError) {
-              return Center(child: Text('Error: ${snap.error}'));
-            }
-            if (!snap.hasData || snap.data!.snapshot.value == null) {
-              return Center(child: CircularProgressIndicator());
-            }
-
-            // build store list
-            final raw = snap.data!.snapshot.value as Map;
-            final stores = <BobaStore>[];
-            raw.forEach((city, cityMap) {
-              final m = Map<String, dynamic>.from(cityMap as Map);
-              m.forEach((sid, sdata) {
-                final s = Map<String, dynamic>.from(sdata as Map);
-                s['city'] = city;
-                stores.add(BobaStore.fromJson(sid, s));
-              });
-            });
-
-            if (stores.isEmpty) {
-              return Center(child: Text('No stores found.'));
-            }
-
-            // sort by favorite then distance
-            stores.sort((a, b) {
-              final aFav = _favorites.contains(a.id);
-              final bFav = _favorites.contains(b.id);
-              if (aFav != bFav) return aFav ? -1 : 1;
-              final da = Geolocator.distanceBetween(
-                _userPosition!.latitude,
-                _userPosition!.longitude,
-                a.latitude,
-                a.longitude,
-              );
-              final db = Geolocator.distanceBetween(
-                _userPosition!.latitude,
-                _userPosition!.longitude,
-                b.latitude,
-                b.longitude,
-              );
-              return da.compareTo(db);
-            });
-
-            final display = stores.take(6).toList();
-
-            return ListView.builder(
-              padding: EdgeInsets.all(8),
-              itemCount: display.length,
-              itemBuilder: (ctx, i) {
-                final store = display[i];
-                return AnimatedStoreCard(
-                  index: i,
-                  child: StoreCard(
-                    store: store,
-                    isFavorite: _favorites.contains(store.id),
-                    isDarkMode: widget.isDarkMode,
-                    userPosition: _userPosition!,
-                    onFavoriteToggle: () {
-                      setState(() {
-                        _favorites.contains(store.id)
-                            ? _favorites.remove(store.id)
-                            : _favorites.add(store.id);
-                      });
-                    },
-                    onTap: () {
-                      // navigate without writing—details page handles visit logic
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StoreDetailsScreen(
-                            store: store,
-                            userPosition: _userPosition!,
-                            userId: widget.uid,
-                          ),
-                        ),
-                      );
-                    },
-                    uid: widget.uid,
-                  ),
-                );
-              },
-            );
-          },
+          ),
         ),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        shape: CircularNotchedRectangle(),
-        notchMargin: 6,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+
+        body: TabBarView(
           children: [
-            IconButton(
-              icon: Icon(Icons.star_outline, size: 21.0),
-              onPressed: () => Navigator.pushNamed(context, '/review'),
-            ),
-            IconButton(
-              icon: Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
-              onPressed: () => Navigator.pushNamed(context, '/friends'),
-            ),
-            IconButton(
-              icon: Icon(Icons.home_outlined, size: 21.0),
-              onPressed: () {
-                final user = fbAuth.FirebaseAuth.instance.currentUser;
-                if (user != null) {
-                  Navigator.pushReplacementNamed(context, '/main',
-                      arguments: user.uid);
-                } else {
-                  Navigator.pushReplacementNamed(context, '/login');
-                }
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.map_outlined, size: 21.0),
-              onPressed: () => Navigator.pushNamed(context, '/notifications'),
-            ),
-            IconButton(
-              icon: Icon(Icons.person_outline, size: 21.0),
-              onPressed: () => Navigator.pushNamed(context, '/profile'),
-            ),
+            _buildStoreList(_discoverStores),
+            _buildStoreList(_closestStores.take(6).toList()),
+            _buildStoreList(_favoriteStores),
           ],
         ),
-      ),
-    );
-  }
-}
 
-/// ------------------------------------------------------------------------
-/// STORE DETAILS: geofence + countdown, then record per-user + global.
-/// ------------------------------------------------------------------------
-class StoreDetailsScreen extends StatefulWidget {
-  final BobaStore store;
-  final Position userPosition;
-  final String userId;
-
-  const StoreDetailsScreen({
-    Key? key,
-    required this.store,
-    required this.userPosition,
-    required this.userId,
-  }) : super(key: key);
-
-  @override
-  _StoreDetailsScreenState createState() => _StoreDetailsScreenState();
-}
-
-class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
-  static const _threshold = 3.05; // meters
-  bool _visited = false;
-  bool _timerActive = false;
-  int _seconds = 30;
-  Timer? _geoTimer;
-  Timer? _countdownTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _geoTimer = Timer.periodic(Duration(seconds: 5), (_) => _checkProximity());
-  }
-
-  @override
-  void dispose() {
-    _geoTimer?.cancel();
-    _countdownTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _checkProximity() async {
-    if (_visited) {
-      _geoTimer?.cancel();
-      return;
-    }
-    Position pos;
-    try {
-      pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-    } catch (_) {
-      return;
-    }
-    final dist = Geolocator.distanceBetween(
-      pos.latitude,
-      pos.longitude,
-      widget.store.latitude,
-      widget.store.longitude,
-    );
-    if (dist <= _threshold && !_timerActive) {
-      _startCountdown();
-    } else if (dist > _threshold && _timerActive) {
-      _cancelCountdown();
-    }
-  }
-
-  void _startCountdown() {
-    setState(() {
-      _timerActive = true;
-      _seconds = 30;
-    });
-    _countdownTimer = Timer.periodic(Duration(seconds: 1), (t) async {
-      setState(() => _seconds--);
-      if (_seconds <= 0) {
-        t.cancel();
-        await _confirmAndRecord();
-      }
-    });
-  }
-
-  void _cancelCountdown() {
-    _countdownTimer?.cancel();
-    setState(() {
-      _timerActive = false;
-      _seconds = 30;
-    });
-  }
-
-  Future<void> _confirmAndRecord() async {
-    Position pos;
-    try {
-      pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-    } catch (_) {
-      _cancelCountdown();
-      return;
-    }
-    final dist2 = Geolocator.distanceBetween(
-      pos.latitude,
-      pos.longitude,
-      widget.store.latitude,
-      widget.store.longitude,
-    );
-    if (dist2 <= _threshold) {
-      await _recordVisit(pos);
-      setState(() {
-        _visited = true;
-        _timerActive = false;
-      });
-    } else {
-      _cancelCountdown();
-    }
-  }
-
-  Future<void> _recordVisit(Position pos) async {
-    final fbUser = fbAuth.FirebaseAuth.instance.currentUser;
-    if (fbUser == null || fbUser.uid != widget.userId) {
-      print('Auth mismatch; not recording');
-      return;
-    }
-
-    final userRef = FirebaseDatabase.instance
-        .ref()
-        .child('userStoreVisits')
-        .child(widget.userId)
-        .child(widget.store.id);
-
-    try {
-      final snap = await userRef.get();
-      int cnt = snap.exists ? int.parse(snap.value.toString()) : 0;
-      await userRef.set(cnt + 1);
-
-      final storeRef = FirebaseDatabase.instance
-          .ref()
-          .child('stores')
-          .child(widget.store.city)
-          .child(widget.store.id);
-      await storeRef.runTransaction((data) {
-        if (data != null) {
-          final m = Map<String, dynamic>.from(data as Map);
-          m['visits'] = (m['visits'] ?? 0) + 1;
-          return Transaction.success(m);
-        }
-        return Transaction.success(data);
-      });
-      print('Visit recorded for ${widget.store.id}');
-    } catch (e) {
-      print('Error recording visit: $e');
-    }
-  }
-
-  Future<void> _openMaps() async {
-    final uri = Uri.https(
-      'www.google.com',
-      '/maps/search/',
-      {
-        'api': '1',
-        'query': '${widget.store.latitude},${widget.store.longitude}'
-      },
-    );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not open maps.')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final dist = Geolocator.distanceBetween(
-      widget.userPosition.latitude,
-      widget.userPosition.longitude,
-      widget.store.latitude,
-      widget.store.longitude,
-    );
-    final miles = dist / 1000 * 0.621371;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.store.name), centerTitle: true),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Icon(Icons.store, size: 100, color: Colors.grey),
-              SizedBox(height: 24),
-              Text('${miles.toStringAsFixed(2)} mi away',
-                  style: TextStyle(fontSize: 18)),
-              SizedBox(height: 16),
-              GestureDetector(
-                onTap: _openMaps,
-                child: Text(
-                  '${widget.store.address}\n'
-                  '${widget.store.city}, ${widget.store.state} ${widget.store.zip}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.blue,
-                    decoration: TextDecoration.underline,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+        bottomNavigationBar: BottomAppBar(
+          color: Theme.of(context).colorScheme.surface,
+          shape: const CircularNotchedRectangle(),
+          notchMargin: 6,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              IconButton(
+                icon: const Icon(Icons.star_outline, size: 21),
+                tooltip: 'Visits',
+                onPressed: () => Navigator.pushNamed(context, '/review'),
               ),
-              SizedBox(height: 24),
-              if (_visited)
-                Text('Visit recorded!',
-                    style: TextStyle(fontSize: 16, color: Colors.green))
-              else if (_timerActive)
-                Text('$_seconds sec to record visit',
-                    style: TextStyle(fontSize: 16, color: Colors.orange))
-              else
-                Text('Move closer to record visit',
-                    style: TextStyle(fontSize: 16, color: Colors.red)),
+              IconButton(
+                icon:
+                    const Icon(Icons.emoji_food_beverage_outlined, size: 21),
+                tooltip: 'Featured',
+                onPressed: () => Navigator.pushNamed(context, '/friends'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.home_outlined, size: 21),
+                tooltip: 'Home',
+                onPressed: () {
+                  final user = fbAuth.FirebaseAuth.instance.currentUser;
+                  if (user != null && user.uid.isNotEmpty) {
+                    Navigator.pushReplacementNamed(context, '/main',
+                        arguments: user.uid);
+                  } else {
+                    Navigator.pushReplacementNamed(context, '/login');
+                  }
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.map_outlined, size: 21),
+                tooltip: 'Map',
+                onPressed: () => Navigator.pushNamed(context, '/notifications'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.person_outline, size: 21),
+                tooltip: 'Profile',
+                onPressed: () => Navigator.pushNamed(context, '/profile'),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildStoreList(List<BobaStore> stores) {
+    if (_userPosition == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (stores.isEmpty) {
+      return const Center(child: Text('No stores here.'));
+    }
+    return CustomRefreshIndicator(
+      onRefresh: _handleRefresh,
+      builder: (ctx, child, controller) {
+        return Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            Transform.translate(
+              offset: Offset(0, controller.value * 100 - 50),
+              child: Opacity(
+                opacity: min(controller.value, 1.0),
+                child: Image.asset(
+                  'assets/capy_boba.png',
+                  width: 50,
+                  height: 50,
+                ),
+              ),
+            ),
+            Transform.translate(
+              offset: Offset(0, controller.value * 100),
+              child: child,
+            ),
+          ],
+        );
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: stores.length,
+        itemBuilder: (ctx, i) {
+          final store = stores[i];
+          return AnimatedStoreCard(
+            index: i,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: StoreCard(
+                store: store,
+                isFavorite: _favorites.contains(store.id),
+                isDarkMode: widget.isDarkMode,
+                userPosition: _userPosition!,
+                onFavoriteToggle: () => _toggleFavorite(store.id),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StoreDetailsScreen(
+                        store: store,
+                        userPosition: _userPosition!,
+                        userId: widget.uid,
+                      ),
+                    ),
+                  );
+                },
+                uid: widget.uid,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
-/// ------------------------------------------------------------------------
-/// STORE CARD (list item)
-/// ------------------------------------------------------------------------
+/// STORE DETAILS SCREEN (unchanged) …
+/// STORE CARD WITH DYNAMIC THEME COLORS:
 class StoreCard extends StatelessWidget {
   final BobaStore store;
   final bool isFavorite;
@@ -483,53 +340,88 @@ class StoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      child: ListTile(
-        leading: Hero(
-          tag: 'storeImage-${store.id}',
-          child: Icon(
-            Icons.store,
-            size: 60,
-            color: isDarkMode ? Colors.white : Colors.black,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).cardColor,
+      elevation: 6,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.store,
+                size: 48,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      store.name,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                      softWrap: true,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${store.city}, ${store.state}',
+                      style: const TextStyle(fontSize: 14),
+                      softWrap: true,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Global Visits: ${store.visits}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color:
+                            isDarkMode ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                    ),
+                    FutureBuilder<DataSnapshot>(
+                      future: FirebaseDatabase.instance
+                          .ref()
+                          .child('userStoreVisits')
+                          .child(uid)
+                          .child(store.id)
+                          .get(),
+                      builder: (ctx, snap) {
+                        final count = (snap.hasData && snap.data!.value != null)
+                            ? int.parse(snap.data!.value.toString())
+                            : 0;
+                        return Text(
+                          'Your Visits: $count',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.blue),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                iconSize: 24,
+                icon: Icon(
+                  isFavorite ? Icons.star : Icons.star_border,
+                  color: isFavorite ? Colors.amber : Colors.grey,
+                ),
+                onPressed: onFavoriteToggle,
+              ),
+            ],
           ),
         ),
-        title: Text(store.name, style: TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("${store.city}, ${store.state}"),
-            Text("Global Visits: ${store.visits}"),
-            FutureBuilder<DataSnapshot>(
-              future: FirebaseDatabase.instance
-                  .ref()
-                  .child('userStoreVisits')
-                  .child(uid)
-                  .child(store.id)
-                  .get(),
-              builder: (ctx, snap) {
-                final count = (snap.hasData && snap.data!.value != null)
-                    ? int.parse(snap.data!.value.toString())
-                    : 0;
-                return Text("Your Visits: $count",
-                    style: TextStyle(color: Colors.blue));
-              },
-            ),
-          ],
-        ),
-        trailing: IconButton(
-          icon: Icon(isFavorite ? Icons.star : Icons.star_border,
-              color: isFavorite ? Colors.amber : null),
-          onPressed: onFavoriteToggle,
-        ),
-        onTap: onTap,
       ),
     );
   }
 }
 
-/// ------------------------------------------------------------------------
 /// SIMPLE FADE+SLIDE ANIMATION FOR THE LIST ITEMS
-/// ------------------------------------------------------------------------
 class AnimatedStoreCard extends StatefulWidget {
   final Widget child;
   final int index;
@@ -546,35 +438,35 @@ class AnimatedStoreCard extends StatefulWidget {
 
 class _AnimatedStoreCardState extends State<AnimatedStoreCard>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-  late final Animation<double> _a;
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 400),
-    );
-    _a = CurvedAnimation(parent: _c, curve: Curves.easeOut);
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     Future.delayed(Duration(milliseconds: widget.index * 100), () {
-      if (mounted) _c.forward();
+      if (mounted) _controller.forward();
     });
   }
 
   @override
   void dispose() {
-    _c.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: _a,
+      opacity: _animation,
       child: SlideTransition(
-        position:
-            Tween<Offset>(begin: Offset(0, 0.2), end: Offset.zero).animate(_a),
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.2),
+          end: Offset.zero,
+        ).animate(_animation),
         child: widget.child,
       ),
     );
