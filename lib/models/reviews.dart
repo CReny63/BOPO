@@ -181,7 +181,7 @@ class _StoresPageState extends State<StoresPage> {
                   labelStyle: const TextStyle(fontSize: 14),
                   unselectedLabelStyle: const TextStyle(fontSize: 14),
                   tabs: const [
-                    Tab(text: 'Unvisited'),
+                    Tab(text: 'Discover'),
                     Tab(text: 'Nearby'),
                     Tab(text: 'Favorites'),
                   ],
@@ -212,8 +212,7 @@ class _StoresPageState extends State<StoresPage> {
                 onPressed: () => Navigator.pushNamed(context, '/review'),
               ),
               IconButton(
-                icon:
-                    const Icon(Icons.emoji_food_beverage_outlined, size: 21),
+                icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21),
                 tooltip: 'Featured',
                 onPressed: () => Navigator.pushNamed(context, '/friends'),
               ),
@@ -397,8 +396,8 @@ class StoreCard extends StatelessWidget {
                             : 0;
                         return Text(
                           'Your Visits: $count',
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.blue),
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.blue),
                         );
                       },
                     ),
@@ -444,8 +443,8 @@ class _AnimatedStoreCardState extends State<AnimatedStoreCard>
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
     _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     Future.delayed(Duration(milliseconds: widget.index * 100), () {
       if (mounted) _controller.forward();

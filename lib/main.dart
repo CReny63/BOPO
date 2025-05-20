@@ -71,7 +71,7 @@ class _MyAppState extends State<MyApp> {
           theme: themeProvider.currentTheme,
           initialRoute: '/splash', // Start at splash screen.
           routes: {
-            '/friends': (context) => const FeaturedPage(),
+            '/friends': (context) => const StorePage(),
             '/splash': (context) => SplashScreen(),
             // '/splash2' is handled via onGenerateRoute.
             '/login': (context) => LoginPage(

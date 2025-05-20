@@ -2,218 +2,195 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
-import 'package:test/locations/boba_store.dart';
-import 'package:test/locations/fetch_stores.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
 
-class FeaturedPage extends StatefulWidget {
-  const FeaturedPage({Key? key}) : super(key: key);
+class StorePage extends StatefulWidget {
+  const StorePage({Key? key}) : super(key: key);
+
   @override
-  _FeaturedPageState createState() => _FeaturedPageState();
+  _StorePageState createState() => _StorePageState();
 }
 
-class _FeaturedPageState extends State<FeaturedPage> {
-  final StoreService _storeService = StoreService();
-  Position? _currentPosition;
-  List<BobaStore> _nearbyStores = [];
-  String? _activeStoreName;
-  String? _activeStoreLocation; // "City, ST"
-  bool _isLoading = true;
+class _StorePageState extends State<StorePage> {
+  late DatabaseReference _userRef;
+  String _uid = '';
+  int _coins = 10;
+  List<String> _unlockedStickers = [];
 
-  // Flavor roulette
-  final List<String> _flavors = [
-    "Matcha Latte + Tapioca Boba",
-    "Thai Tea + Mango Pearls",
-    "Honeydew Tea + Aloe Vera",
-    "Taro Latte + Crystal Boba",
-    "Brown Sugar Milk + Cold Brew Jelly",
-    "Strawberry Smoothie + Strawberry Jelly",
-    "Oolong Tea + Lychee Jelly",
-    "Chocolate Milk Tea + Coffee Jelly",
+  final List<_MysteryBox> _boxes = [
+    _MysteryBox('Bronze Box', 10, Colors.brown, 'assets/bronze_box.png'),
+    _MysteryBox('Silver Box', 20, Colors.grey, 'assets/silver_box.png'),
+    _MysteryBox('Gold Box', 30, Colors.amber, 'assets/gold_box.png'),
   ];
-  String? _selectedFlavor;
-  bool _spinning = false;
 
   @override
   void initState() {
     super.initState();
-    _initLocationAndStores();
+    _initUser();
   }
 
-  Future<void> _initLocationAndStores() async {
-    try {
-      _currentPosition = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      final stores = await _storeService.fetchNearbyStores(
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
-        radiusInMeters: 5000,
-      );
-      stores.sort((a, b) {
-        final da = Geolocator.distanceBetween(_currentPosition!.latitude,
-            _currentPosition!.longitude, a.latitude, a.longitude);
-        final db = Geolocator.distanceBetween(_currentPosition!.latitude,
-            _currentPosition!.longitude, b.latitude, b.longitude);
-        return da.compareTo(db);
-      });
-      setState(() {
-        _nearbyStores = stores.take(8).toList();
-        _determineActiveStore();
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint("Error fetching location/stores: $e");
-      setState(() => _isLoading = false);
-    }
-  }
+  Future<void> _initUser() async {
+    final user = fbAuth.FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    _uid = user.uid;
+    _userRef = FirebaseDatabase.instance.ref().child('users/$_uid');
 
-  void _determineActiveStore() {
-    if (_currentPosition == null || _nearbyStores.isEmpty) return;
-    const threshold = 20.0;
-    double bestDist = double.infinity;
-    BobaStore? best;
-    for (var s in _nearbyStores) {
-      final d = Geolocator.distanceBetween(_currentPosition!.latitude,
-          _currentPosition!.longitude, s.latitude, s.longitude);
-      if (d < bestDist) {
-        bestDist = d;
-        best = s;
+    final coinSnap = await _userRef.child('coins').get();
+    final stickerSnap = await _userRef.child('stickers').get();
+
+    setState(() {
+      _coins = coinSnap.exists ? (coinSnap.value as int) : 0;
+      if (stickerSnap.exists) {
+        final data = Map<String, dynamic>.from(stickerSnap.value as Map);
+        _unlockedStickers = data.values
+            .map((e) => e['asset'] as String)
+            .toList();
       }
-    }
-    if (best != null && bestDist <= threshold) {
-      _activeStoreName = best.name;
-      _activeStoreLocation = "${best.city}, ${best.state}";
-    } else {
-      _activeStoreName = null;
-      _activeStoreLocation = null;
-    }
+    });
   }
 
-  Future<void> _spin() async {
-    if (_spinning) return;
-    setState(() {
-      _spinning = true;
-      _selectedFlavor = null;
-    });
-    await Future.delayed(const Duration(milliseconds: 800));
-    final rnd = Random();
-    setState(() {
-      _selectedFlavor = _flavors[rnd.nextInt(_flavors.length)];
-      _spinning = false;
-    });
+  Future<void> _updateCoins(int delta) async {
+    setState(() => _coins += delta);
+    await _userRef.update({'coins': _coins});
+  }
+
+  Future<void> _openBox(_MysteryBox box) async {
+    if (_coins < box.cost) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not enough coins')),
+      );
+      return;
+    }
+    await _updateCoins(-box.cost);
+
+    // Random coin reward 20-25
+    final reward = Random().nextInt(6) + 20;
+    await _updateCoins(reward);
+
+    // Random sticker unlock
+    final assets = [
+      'assets/sticker1.png',
+      'assets/sticker2.png',
+      'assets/sticker3.png',
+      'assets/sticker4.png',
+      'assets/sticker5.png',
+    ];
+    final sticker = assets[Random().nextInt(assets.length)];
+    await _userRef.child('stickers').push().set({'asset': sticker});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Opened ${box.title}: +\$reward coins & new sticker!')),
+    );
+    await _initUser();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context);
-
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: AppBarContent(
-          toggleTheme: theme.toggleTheme,
-          isDarkMode: theme.isDarkMode,
+        child: Stack(
+          children: [
+            AppBarContent(
+              toggleTheme: theme.toggleTheme,
+              isDarkMode: theme.isDarkMode,
+            ),
+            // coins badge under app bar
+            Positioned(
+              top: 70,
+              right: 16,
+              child: Row(
+                children: [
+                  Icon(Icons.monetization_on_outlined,
+                      color: theme.isDarkMode ? Colors.amber : Colors.orange),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$_coins',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: theme.isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (_activeStoreName != null) ...[
-                      Text(
-                        _activeStoreName!,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: theme.isDarkMode ? Colors.white : Colors.black,
-                        ),
-                        textAlign: TextAlign.center,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          children: [
+            // Mystery boxes row
+            SizedBox(
+              height: 120,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _boxes.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, idx) {
+                  final box = _boxes[idx];
+                  return GestureDetector(
+                    onTap: () => _openBox(box),
+                    child: Container(
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: box.color.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: box.color, width: 2),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _activeStoreLocation!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: theme.isDarkMode
-                              ? Colors.white70
-                              : Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                    GestureDetector(
-                      onTap: _spin,
-                      child: SizedBox(
-                        width: 120,
-                        height: 120,
-                        child: _spinning
-                            ? CircularProgressIndicator(
-                                strokeWidth: 6,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    theme.isDarkMode
-                                        ? Colors.white
-                                        : Colors.brown),
-                              )
-                            : Image.asset(
-                                'assets/spinner_cup.png',
-                                fit: BoxFit.contain,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    if (_selectedFlavor == null && !_spinning)
-                      Text(
-                        "Tap the cup to spin for a flavor!",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: theme.isDarkMode
-                              ? Colors.white70
-                              : Colors.black87,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    if (_selectedFlavor != null)
-                      Column(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            _selectedFlavor!,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: theme.isDarkMode
-                                  ? Colors.white
-                                  : Colors.black,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: _spin,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text("Spin Again"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.isDarkMode
-                                  ? Colors.grey[800]
-                                  : Colors.brown,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 24, vertical: 12),
-                            ),
-                          ),
+                          Image.asset(box.asset, width: 50, height: 50),
+                          const SizedBox(height: 8),
+                          Text(box.title,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: box.color)),
+                          const SizedBox(height: 4),
+                          Text('${box.cost} coins',
+                              style: Theme.of(context).textTheme.bodySmall),
                         ],
                       ),
-                  ],
-                ),
+                    ),
+                  );
+                },
               ),
             ),
+
+            const SizedBox(height: 24),
+            // Stickers section
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Your Stickers',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8),
+                itemCount: _unlockedStickers.length,
+                itemBuilder: (context, idx) {
+                  return Image.asset(_unlockedStickers[idx]);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
       bottomNavigationBar: BottomAppBar(
         color: Theme.of(context).colorScheme.surface,
         child: Row(
@@ -227,17 +204,15 @@ class _FeaturedPageState extends State<FeaturedPage> {
             IconButton(
               icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
               tooltip: 'Featured',
-              onPressed: () {},
+              onPressed: () => Navigator.pushNamed(context, '/featured'),
             ),
             IconButton(
               icon: const Icon(Icons.home_outlined, size: 21.0),
               tooltip: 'Home',
               onPressed: () {
-                final fbAuth.User? user =
-                    fbAuth.FirebaseAuth.instance.currentUser;
-                if (user != null && user.uid.isNotEmpty) {
+                if (_uid.isNotEmpty) {
                   Navigator.pushReplacementNamed(context, '/main',
-                      arguments: user.uid);
+                      arguments: _uid);
                 } else {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
@@ -251,14 +226,19 @@ class _FeaturedPageState extends State<FeaturedPage> {
             IconButton(
               icon: const Icon(Icons.person_outline, size: 21.0),
               tooltip: 'Profile',
-              onPressed: () => Navigator.pushNamed(
-                context,
-                '/profile',
-              ),
+              onPressed: () => Navigator.pushNamed(context, '/profile'),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _MysteryBox {
+  final String title;
+  final int cost;
+  final Color color;
+  final String asset;
+  const _MysteryBox(this.title, this.cost, this.color, this.asset);
 }

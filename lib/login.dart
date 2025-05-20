@@ -59,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
       // Optionally save email and password so they can be reloaded later.
       await _saveCredentials(emailController.text.trim(), passwordController.text);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email Sign In Successful!')),
+        const SnackBar(content: Text('')),
       );
       // Navigate to next screen (pass the uid as argument)
       Navigator.pushReplacementNamed(context, '/splash2', arguments: uid);
@@ -76,16 +76,16 @@ class _LoginPageState extends State<LoginPage> {
     UserCredential? userCredential = await _authService.signInWithGoogle();
     if (userCredential != null) {
       String uid = userCredential.user!.uid; // Real Firebase UID
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Sign In Successful!')),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(content: Text('')),
+      // );
       // For convenience, you might want to save the user's email as well.
       await _saveCredentials(userCredential.user!.email ?? '', '');
       Navigator.pushReplacementNamed(context, '/splash2', arguments: uid);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Sign-In failed.')),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(content: Text('')),
+      // );
     }
   }
 

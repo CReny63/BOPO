@@ -131,6 +131,17 @@ flutter:
 
     - assets/spinner_cup.png
 
+    - assets/sticker1.png
+    - assets/sticker2.png
+    - assets/sticker3.png
+    - assets/sticker4.png
+    - assets/sticker5.png
+    - assets/bronze_box.png
+    - assets/silver_box.png
+    - assets/gold_box.png
+
+    
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 
