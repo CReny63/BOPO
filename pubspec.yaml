@@ -136,6 +136,9 @@ flutter:
     - assets/sticker3.png
     - assets/sticker4.png
     - assets/sticker5.png
+    - assets/sticker45.png
+
+
     - assets/bronze_box.png
     - assets/silver_box.png
     - assets/gold_box.png

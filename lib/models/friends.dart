@@ -195,6 +195,7 @@ class _StorePageState extends State<StorePage> {
       'assets/sticker3.png',
       'assets/sticker4.png',
       'assets/sticker5.png',
+      'assets/sticker45.png',
     ];
     final sticker = assets[Random().nextInt(assets.length)];
     await _userRef.child('stickers').push().set({'asset': sticker});
