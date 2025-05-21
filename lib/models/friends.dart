@@ -22,9 +22,9 @@ class _StorePageState extends State<StorePage> {
   List<String> _unlockedStickers = [];
 
   final List<_MysteryBox> _boxes = [
-    _MysteryBox('Bronze Box', 10, Colors.brown, 'assets/bronze_box.png'),
-    _MysteryBox('Silver Box', 20, Colors.grey, 'assets/silver_box.png'),
-    _MysteryBox('Gold Box', 30, Colors.amber, 'assets/gold_box.png'),
+    _MysteryBox('Bronze Box', 5, Colors.brown, 'assets/bronze_box.png'),
+    _MysteryBox('Silver Box', 8, Colors.grey, 'assets/silver_box.png'),
+    _MysteryBox('Gold Box', 12, Colors.amber, 'assets/gold_box.png'),
   ];
 
   @override
@@ -53,11 +53,6 @@ class _StorePageState extends State<StorePage> {
     });
   }
 
-  Future<void> _updateCoins(int delta) async {
-    setState(() => _coins += delta);
-    await _userRef.update({'coins': _coins});
-  }
-
   Future<void> _openBox(_MysteryBox box) async {
     if (_coins < box.cost) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,27 +60,57 @@ class _StorePageState extends State<StorePage> {
       );
       return;
     }
+
+    // Deduct cost
     await _updateCoins(-box.cost);
 
-    // Random coin reward 20-25
+    // Reward coins 20-25
     final reward = Random().nextInt(6) + 20;
     await _updateCoins(reward);
 
-    // Random sticker unlock
+    // Unlock sticker
     final assets = [
-      'assets/sticker1.png',
-      'assets/sticker2.png',
-      'assets/sticker3.png',
-      'assets/sticker4.png',
-      'assets/sticker5.png',
+      'stickers/sticker1.png',
+      'stickers/sticker2.png',
+      'stickers/sticker3.png',
+      'stickers/sticker4.png',
+      'stickers/sticker5.png',
     ];
     final sticker = assets[Random().nextInt(assets.length)];
     await _userRef.child('stickers').push().set({'asset': sticker});
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Opened ${box.title}: +\$reward coins & new sticker!')),
-    );
+    // Show splash dialog
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(sticker, width: 100, height: 100),
+              const SizedBox(height: 12),
+              Text('You earned \$${reward} coins!',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('New Sticker Unlocked!'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    });
+
     await _initUser();
+  }
+
+  Future<void> _updateCoins(int delta) async {
+    setState(() => _coins += delta);
+    await _userRef.update({'coins': _coins});
   }
 
   @override
@@ -94,33 +119,9 @@ class _StorePageState extends State<StorePage> {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: Stack(
-          children: [
-            AppBarContent(
-              toggleTheme: theme.toggleTheme,
-              isDarkMode: theme.isDarkMode,
-            ),
-            // coins badge under app bar
-            Positioned(
-              top: 70,
-              right: 16,
-              child: Row(
-                children: [
-                  Icon(Icons.monetization_on_outlined,
-                      color: theme.isDarkMode ? Colors.amber : Colors.orange),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$_coins',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: theme.isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        child: AppBarContent(
+          toggleTheme: theme.toggleTheme,
+          isDarkMode: theme.isDarkMode,
         ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -128,48 +129,48 @@ class _StorePageState extends State<StorePage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           children: [
-            // Mystery boxes row
-            SizedBox(
-              height: 120,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _boxes.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, idx) {
-                  final box = _boxes[idx];
-                  return GestureDetector(
-                    onTap: () => _openBox(box),
-                    child: Container(
-                      width: 100,
-                      decoration: BoxDecoration(
-                        color: box.color.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: box.color, width: 2),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(box.asset, width: 50, height: 50),
-                          const SizedBox(height: 8),
-                          Text(box.title,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: box.color)),
-                          const SizedBox(height: 4),
-                          Text('${box.cost} coins',
-                              style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+            // Coin count below AppBar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(Icons.monetization_on_outlined,
+                    color: theme.isDarkMode ? Colors.amber : Colors.orange),
+                const SizedBox(width: 4),
+                Text(
+                  '$_coins',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: theme.isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+              ],
             ),
-
+            const SizedBox(height: 16),
+            // Mystery boxes row centered
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: _boxes.map((box) {
+                return GestureDetector(
+                  onTap: () => _openBox(box),
+                  child: Column(
+                    children: [
+                      Image.asset(box.asset, width: 64, height: 64),
+                      const SizedBox(height: 8),
+                      Text(box.title,
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: box.color)),
+                      Text('${box.cost} coins',
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
             const SizedBox(height: 24),
-            // Stickers section
+            // Sticker collection
             Align(
               alignment: Alignment.centerLeft,
               child: Text('Your Stickers',
@@ -178,10 +179,12 @@ class _StorePageState extends State<StorePage> {
             const SizedBox(height: 8),
             Expanded(
               child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
                 itemCount: _unlockedStickers.length,
                 itemBuilder: (context, idx) {
                   return Image.asset(_unlockedStickers[idx]);
@@ -197,34 +200,37 @@ class _StorePageState extends State<StorePage> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             IconButton(
-              icon: const Icon(Icons.star_outline, size: 21.0),
+              icon: const Icon(Icons.star_outline),
               tooltip: 'Visits',
               onPressed: () => Navigator.pushNamed(context, '/review'),
             ),
             IconButton(
-              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
+              icon: const Icon(Icons.emoji_food_beverage_outlined),
               tooltip: 'Featured',
               onPressed: () => Navigator.pushNamed(context, '/featured'),
             ),
             IconButton(
-              icon: const Icon(Icons.home_outlined, size: 21.0),
+              icon: const Icon(Icons.home_outlined),
               tooltip: 'Home',
               onPressed: () {
                 if (_uid.isNotEmpty) {
-                  Navigator.pushReplacementNamed(context, '/main',
-                      arguments: _uid);
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/main',
+                    arguments: _uid,
+                  );
                 } else {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
               },
             ),
             IconButton(
-              icon: const Icon(Icons.map_outlined, size: 21.0),
+              icon: const Icon(Icons.map_outlined),
               tooltip: 'Map',
               onPressed: () => Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(
-              icon: const Icon(Icons.person_outline, size: 21.0),
+              icon: const Icon(Icons.person_outline),
               tooltip: 'Profile',
               onPressed: () => Navigator.pushNamed(context, '/profile'),
             ),
@@ -240,5 +246,6 @@ class _MysteryBox {
   final int cost;
   final Color color;
   final String asset;
+
   const _MysteryBox(this.title, this.cost, this.color, this.asset);
 }
