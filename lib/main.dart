@@ -15,7 +15,7 @@ import 'package:test/services/splash.dart';
 import 'package:test/services/splash2.dart';
 import 'package:test/models/profile.dart';
 import 'package:firebase_core/firebase_core.dart';
-//import 'package:test/models/friends.dart'; // Updated FeaturedPage
+import 'package:test/services/visitor_monitor.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,12 +54,23 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+
     // Request location permission at startup.
     _geoService.determinePosition().then((position) {
       print("Obtained position: $position");
     }).catchError((error) {
       print("Location error: $error");
     });
+
+    // Start or stop the background VisitMonitor whenever auth state changes.
+    fbAuth.FirebaseAuth.instance.authStateChanges().listen((fbAuth.User? user) {
+      if (user != null) {
+        VisitMonitor().start(user.uid);
+      } else {
+        VisitMonitor().stop();
+      }
+    });
+    //VisitMonitor().start(fbAuth.FirebaseAuth.instance.currentUser!.uid);
   }
 
   @override
@@ -73,12 +84,10 @@ class _MyAppState extends State<MyApp> {
           routes: {
             '/friends': (context) => const StorePage(),
             '/splash': (context) => SplashScreen(),
-            // '/splash2' is handled via onGenerateRoute.
             '/login': (context) => LoginPage(
                   themeProvider: Provider.of<ThemeProvider>(context, listen: false),
                 ),
             '/review': (context) {
-              // Option 1: Obtain UID directly from FirebaseAuth, if desired.
               final fbAuth.User? user = fbAuth.FirebaseAuth.instance.currentUser;
               final String uid = user?.uid ?? '';
               return review.StoresPage(
@@ -103,14 +112,12 @@ class _MyAppState extends State<MyApp> {
               );
             },
           },
-          // onGenerateRoute handles routes that require a UID argument.
           onGenerateRoute: (RouteSettings settings) {
             if (settings.name == '/splash2') {
               final uid = settings.arguments as String?;
               if (uid == null || uid.isEmpty) {
                 return MaterialPageRoute(
-                  builder: (_) => LoginPage(
-                      themeProvider: Provider.of<ThemeProvider>(_, listen: false)),
+                  builder: (_) => LoginPage(themeProvider: themeProvider),
                 );
               }
               return MaterialPageRoute(builder: (_) => Splash2(uid: uid));
@@ -119,8 +126,7 @@ class _MyAppState extends State<MyApp> {
               final uid = settings.arguments as String?;
               if (uid == null || uid.isEmpty) {
                 return MaterialPageRoute(
-                  builder: (_) => LoginPage(
-                      themeProvider: Provider.of<ThemeProvider>(_, listen: false)),
+                  builder: (_) => LoginPage(themeProvider: themeProvider),
                 );
               }
               return MaterialPageRoute(
@@ -134,8 +140,6 @@ class _MyAppState extends State<MyApp> {
             return null;
           },
           debugShowCheckedModeBanner: false,
-          // Instead of a fallback home with an empty UID, use a FutureBuilder
-          // to check FirebaseAuth state.
           home: FutureBuilder<fbAuth.User?>(
             future: fbAuth.FirebaseAuth.instance.authStateChanges().first,
             builder: (context, snapshot) {
@@ -145,7 +149,6 @@ class _MyAppState extends State<MyApp> {
                 );
               }
               if (snapshot.hasData && snapshot.data != null) {
-                // Use the real UID from FirebaseAuth.
                 return HomeWithProgress(
                   uid: snapshot.data!.uid,
                   isDarkMode: themeProvider.isDarkMode,

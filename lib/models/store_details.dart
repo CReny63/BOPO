@@ -8,7 +8,7 @@ import 'package:test/locations/boba_store.dart';
 class StoreDetailsScreen extends StatefulWidget {
   final BobaStore store;
   final Position userPosition;
-  final String userId; // This should be the real Firebase UID
+  final String userId; // Firebase UID
 
   const StoreDetailsScreen({
     Key? key,
@@ -30,15 +30,15 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   bool _timerActive = false;
   Position? _currentUserPosition;
 
- @override
-void initState() {
-  super.initState();
-  print("StoreDetailsScreen initialized with UID: ${widget.userId}");
-  _currentUserPosition = widget.userPosition;
-  _locationMonitorTimer = Timer.periodic(Duration(seconds: 5), (timer) {
-    _checkAndStartCountdown();
-  });
-}
+  @override
+  void initState() {
+    super.initState();
+    _currentUserPosition = widget.userPosition;
+    _locationMonitorTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _checkAndStartCountdown(),
+    );
+  }
 
   @override
   void dispose() {
@@ -48,28 +48,25 @@ void initState() {
   }
 
   Future<void> _checkAndStartCountdown() async {
-    Position currentPosition;
+    Position pos;
     try {
-      currentPosition = await Geolocator.getCurrentPosition(
+      pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
-      setState(() {
-        _currentUserPosition = currentPosition;
-      });
-    } catch (e) {
-      print("Error obtaining position: $e");
+      _currentUserPosition = pos;
+    } catch (_) {
       return;
     }
 
-    double distance = Geolocator.distanceBetween(
-      currentPosition.latitude,
-      currentPosition.longitude,
+    final dist = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
       widget.store.latitude,
       widget.store.longitude,
     );
 
-    if (distance <= thresholdMeters && !_timerActive && !visitRecorded) {
+    if (dist <= thresholdMeters && !_timerActive && !visitRecorded) {
       _startCountdown();
-    } else if (distance > thresholdMeters && _timerActive) {
+    } else if (dist > thresholdMeters && _timerActive) {
       _cancelCountdown();
     }
   }
@@ -79,173 +76,162 @@ void initState() {
       _timerActive = true;
       _timeRemaining = 30;
     });
-    _countdownTimer = Timer.periodic(Duration(seconds: 1), (timer) async {
+    _countdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (timer) async {
+        setState(() => _timeRemaining--);
+        if (_timeRemaining <= 0) {
+          timer.cancel();
+          await _verifyAndRecordVisit();
+        }
+      },
+    );
+  }
+
+  Future<void> _verifyAndRecordVisit() async {
+    Position pos;
+    try {
+      pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+    } catch (_) {
+      _cancelCountdown();
+      return;
+    }
+    final updatedDist = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      widget.store.latitude,
+      widget.store.longitude,
+    );
+    if (updatedDist <= thresholdMeters) {
+      await _recordVisit(pos);
       setState(() {
-        _timeRemaining--;
+        visitRecorded = true;
+        _timerActive = false;
       });
-      if (_timeRemaining <= 0) {
-        timer.cancel();
-        Position updatedPosition;
-        try {
-          updatedPosition = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high);
-        } catch (e) {
-          print("Error obtaining updated position: $e");
-          _cancelCountdown();
-          return;
-        }
-        double updatedDistance = Geolocator.distanceBetween(
-          updatedPosition.latitude,
-          updatedPosition.longitude,
-          widget.store.latitude,
-          widget.store.longitude,
-        );
-        if (updatedDistance <= thresholdMeters) {
-          await _recordVisit(updatedPosition);
-          setState(() {
-            visitRecorded = true;
-            _timerActive = false;
-          });
-        } else {
-          _cancelCountdown();
-        }
-      }
-    });
+    } else {
+      _cancelCountdown();
+    }
   }
 
   void _cancelCountdown() {
     _countdownTimer?.cancel();
-    _countdownTimer = null;
     setState(() {
       _timerActive = false;
       _timeRemaining = 30;
     });
   }
 
- Future<void> _recordVisit(Position position) async {
-  // Check uniqueness using the userVisits node.
-  final DatabaseReference userVisitsRef = FirebaseDatabase.instance
-      .ref()
-      .child("userVisits")
-      .child(widget.userId)
-      .child(widget.store.id);
-  final DataSnapshot snapshot = await userVisitsRef.get();
+  Future<void> _recordVisit(Position position) async {
+    final userVisitsRef = FirebaseDatabase.instance
+        .ref()
+        .child('userVisits')
+        .child(widget.userId)
+        .child(widget.store.id);
+    final snap = await userVisitsRef.get();
+    if (snap.exists) return;
 
-  if (!snapshot.exists) {
-    // Write detailed visit information to visits node.
-    final DatabaseReference visitsRef = FirebaseDatabase.instance
+    // 1) Record in visits
+    await FirebaseDatabase.instance
         .ref()
         .child('visits')
-        .child(widget.store.id);
-    await visitsRef.child(widget.userId).set({
+        .child(widget.store.id)
+        .child(widget.userId)
+        .set({
       'timestamp': DateTime.now().toIso8601String(),
       'latitude': position.latitude,
       'longitude': position.longitude,
     });
 
-    // Update the store's overall visit count.
-    final DatabaseReference storeRef = FirebaseDatabase.instance
+    // 2) Increment store total visits
+    final storeRef = FirebaseDatabase.instance
         .ref()
         .child('stores')
         .child(widget.store.city)
         .child(widget.store.id);
-
-    await storeRef.runTransaction((currentData) {
-      if (currentData != null) {
-        Map data = Map.from(currentData as Map);
-        int currentVisits = data['visits'] ?? 0;
-        data['visits'] = currentVisits + 1;
-        return Transaction.success(data);
+    await storeRef.runTransaction((data) {
+      if (data != null) {
+        final map = Map<String, dynamic>.from(data as Map);
+        map['visits'] = (map['visits'] ?? 0) + 1;
+        return Transaction.success(map);
       }
-      return Transaction.success(currentData);
+      return Transaction.success(data);
     });
 
-    // Record the unique visit for missions in the userVisits node.
+    // 3) Mark unique visit
     await userVisitsRef.set({
       'timestamp': DateTime.now().toIso8601String(),
       'latitude': position.latitude,
       'longitude': position.longitude,
     });
 
-    print("Visit registered for store ${widget.store.id} with uid ${widget.userId}");
-  } else {
-    print("Visit already recorded for store ${widget.store.id} for uid ${widget.userId}");
+    // 4) Award 1 coin to user
+    final coinRef = FirebaseDatabase.instance
+        .ref()
+        .child('users')
+        .child(widget.userId)
+        .child('coins');
+    final coinSnap = await coinRef.get();
+    final current = coinSnap.exists ? coinSnap.value as int : 0;
+    await coinRef.set(current + 1);
+
+    print('Visit registered and 1 coin awarded for store ${widget.store.id}');
   }
-}
 
-
-  Future<void> _openMaps(BuildContext context) async {
-    final Uri googleMapsUri = Uri(
-      scheme: 'https',
-      host: 'www.google.com',
-      path: 'maps/search/',
-      queryParameters: {
-        'api': '1',
-        'query': '${widget.store.latitude},${widget.store.longitude}',
-      },
+  Future<void> _openMaps() async {
+    final uri = Uri.https(
+      'www.google.com',
+      'maps/search/',
+      {'api': '1', 'query': '${widget.store.latitude},${widget.store.longitude}'},
     );
-
-    if (await canLaunchUrl(googleMapsUri)) {
-      await launchUrl(googleMapsUri);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Could not open maps.")),
-      );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    double distance = 0;
-    if (_currentUserPosition != null) {
-      distance = Geolocator.distanceBetween(
-        _currentUserPosition!.latitude,
-        _currentUserPosition!.longitude,
-        widget.store.latitude,
-        widget.store.longitude,
-      );
-    }
-    double distanceKm = distance / 1000;
-    double distanceMiles = distanceKm * 0.621371;
+    final dist = _currentUserPosition == null
+        ? 0.0
+        : Geolocator.distanceBetween(
+            _currentUserPosition!.latitude,
+            _currentUserPosition!.longitude,
+            widget.store.latitude,
+            widget.store.longitude,
+          );
+    final miles = (dist / 1000) * 0.621371;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.store.name),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(widget.store.name), centerTitle: true),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.store, size: 100, color: Colors.grey),
-              const SizedBox(height: 24.0),
-              Text("Distance: ${distanceMiles.toStringAsFixed(2)} mi",
-                  style: const TextStyle(fontSize: 18.0)),
-              const SizedBox(height: 16.0),
+              const SizedBox(height: 24),
+              Text('Distance: ${miles.toStringAsFixed(2)} mi', style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 16),
               GestureDetector(
-                onTap: () => _openMaps(context),
+                onTap: _openMaps,
                 child: Text(
-                  "${widget.store.address}\n${widget.store.city}, ${widget.store.state} ${widget.store.zip}",
+                  '${widget.store.address}\n${widget.store.city}, ${widget.store.state} ${widget.store.zip}',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 16.0,
+                    fontSize: 16,
                     color: Colors.blue,
                     decoration: TextDecoration.underline,
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 24.0),
+              const SizedBox(height: 24),
               if (visitRecorded)
-                const Text("Visit recorded!",
-                    style: TextStyle(fontSize: 16, color: Colors.green))
+                const Text('Visit recorded!', style: TextStyle(fontSize: 16, color: Colors.green))
               else if (_timerActive)
-                Text("$_timeRemaining sec to record visit",
-                    style: const TextStyle(fontSize: 16, color: Colors.orange))
+                Text('$_timeRemaining sec to record visit', style: const TextStyle(fontSize: 16, color: Colors.orange))
               else
-                const Text("Move closer to record visit",
-                    style: TextStyle(fontSize: 16, color: Colors.red)),
+                const Text('Move closer to record visit', style: TextStyle(fontSize: 16, color: Colors.red)),
             ],
           ),
         ),
