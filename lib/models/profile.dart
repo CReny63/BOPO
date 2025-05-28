@@ -1,6 +1,12 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+import 'package:test/locations/boba_store.dart';
+import 'package:test/models/store_details.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:test/widgets/missionScreen.dart';
@@ -8,7 +14,7 @@ import 'package:test/widgets/missionScreen.dart';
 /// A simple HelpScreen for Q&A support.
 class HelpScreen extends StatelessWidget {
   const HelpScreen({Key? key}) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,33 +32,122 @@ class HelpScreen extends StatelessWidget {
   }
 }
 
-/// A simple SavedStores screen that displays the saved/starred stores.
-class SavedStoresScreen extends StatelessWidget {
+/// Displays the user's saved (starred) stores by listening to userFavorites/<uid> and stores tree.
+class SavedStoresScreen extends StatefulWidget {
   final String uid;
   const SavedStoresScreen({Key? key, required this.uid}) : super(key: key);
-  
+
+  @override
+  _SavedStoresScreenState createState() => _SavedStoresScreenState();
+}
+
+class _SavedStoresScreenState extends State<SavedStoresScreen> {
+  final _storesRef = FirebaseDatabase.instance.ref().child('stores');
+  final _favRef = FirebaseDatabase.instance.ref().child('userFavorites');
+
+  StreamSubscription<DatabaseEvent>? _storesSub;
+  StreamSubscription<DatabaseEvent>? _favSub;
+
+  List<BobaStore> _allStores = [];
+  Set<String> _favorites = {};
+
+  /// Current user position (optional retrieval).
+  Position? _userPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _locateUser();
+    _listenStores();
+    _listenFavorites();
+  }
+
+  Future<void> _locateUser() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      setState(() => _userPosition = pos);
+    } catch (e) {
+      debugPrint('Failed to get location: $e');
+    }
+  }
+
+  void _listenStores() {
+    _storesSub = _storesRef.onValue.listen((evt) {
+      final data = evt.snapshot.value as Map<dynamic, dynamic>? ?? {};
+      final tmp = <BobaStore>[];
+      data.forEach((city, cityMap) {
+        final m = Map<String, dynamic>.from(cityMap as Map);
+        m.forEach((sid, sdata) {
+          final map = Map<String, dynamic>.from(sdata as Map);
+          map['city'] = city;
+          tmp.add(BobaStore.fromJson(sid.toString(), map));
+        });
+      });
+      setState(() => _allStores = tmp);
+    });
+  }
+
+  void _listenFavorites() {
+    _favSub = _favRef.child(widget.uid).onValue.listen((evt) {
+      final data = evt.snapshot.value as Map<dynamic, dynamic>? ?? {};
+      setState(() => _favorites = data.keys.map((k) => k.toString()).toSet());
+    });
+  }
+
+  @override
+  void dispose() {
+    _storesSub?.cancel();
+    _favSub?.cancel();
+    super.dispose();
+  }
+
+  List<BobaStore> get _favoriteStores =>
+      _allStores.where((s) => _favorites.contains(s.id)).toList();
+
   @override
   Widget build(BuildContext context) {
-    // Here you would retrieve the saved stores for the user (using uid)
-    // For demonstration, we simply show placeholder content.
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Saved Stores'),
-      ),
-      body: const Center(
-        child: Text(
-          'List of your saved stores will appear here.',
-          style: TextStyle(fontSize: 16),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Saved Stores')),
+      body: _allStores.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _favoriteStores.isEmpty
+              ? const Center(child: Text('No saved stores yet.'))
+              : ListView.builder(
+                  itemCount: _favoriteStores.length,
+                  itemBuilder: (ctx, i) {
+                    final store = _favoriteStores[i];
+                    return ListTile(
+                        leading: const Icon(Icons.store),
+                        title: Text(store.name),
+                        subtitle: Text('${store.city}, ${store.state}'),
+                        trailing: const Icon(Icons.star, color: Colors.amber),
+                        onTap: () {
+                          if (_userPosition != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StoreDetailsScreen(
+                                  store: store,
+                                  userPosition: _userPosition!,
+                                  userId: widget.uid,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                        );
+                  },
+                ),
     );
   }
 }
 
+/// Profile page with Account & Settings tabs.
 class ProfilePage extends StatelessWidget {
   final String username;
   final String email;
-  // The password is not displayed in plain text – using a masked value.
   final String maskedPassword;
   final bool isDarkMode;
   final void Function() toggleTheme;
@@ -66,7 +161,6 @@ class ProfilePage extends StatelessWidget {
     required this.toggleTheme,
   }) : super(key: key);
 
-  // Shows the Manage Account dialog with user details and a reset password button.
   void _showManageAccountDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -92,11 +186,7 @@ class ProfilePage extends StatelessWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                // Add your reset password logic here.
-                print('Reset password pressed - sending one time code.');
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(),
               child: const Text('Reset Password'),
             ),
             TextButton(
@@ -109,7 +199,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Shows the Privacy dialog with details about the user's location usage.
   void _showPrivacyDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -130,71 +219,72 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Logs out the user.
   void _logout(BuildContext context) {
-    print('Logout pressed');
-    // Replace this with your Firebase sign-out logic if needed.
     fbAuth.FirebaseAuth.instance.signOut();
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  // Build the Account tab with updated actions.
   Widget _buildAccountTab(BuildContext context) {
-  // Retrieve the current Firebase user and extract the UID.
-  final fbAuth.User? currentUser = fbAuth.FirebaseAuth.instance.currentUser;
-  final String uid = currentUser?.uid ?? '';
+    final fbAuth.User? currentUser = fbAuth.FirebaseAuth.instance.currentUser;
+    final String uid = currentUser?.uid ?? '';
 
-  return ListView(
-    children: [
-      _buildListTile(
-        'My Missions',
-        'View your missions progress',
-        Icons.emoji_events,
-        () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MissionsScreen(
-              userId: uid, // Use the retrieved uid
-              storeId: "Oceanside_store1", // Example store id
-              storeLatitude: 33.15965,
-              storeLongitude: -117.2048917,
-              storeCity: "Oceanside",
-              scannedStoreIds: <String>{},
-              themeProvider: Provider.of<ThemeProvider>(context, listen: false),
+    return ListView(
+      children: [
+        _buildListTile(
+          'My Missions',
+          'View your missions progress',
+          Icons.emoji_events,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MissionsScreen(
+                userId: uid,
+                storeId: 'Oceanside_store1',
+                storeLatitude: 33.15965,
+                storeLongitude: -117.2048917,
+                storeCity: 'Oceanside',
+                scannedStoreIds: <String>{},
+                themeProvider:
+                    Provider.of<ThemeProvider>(context, listen: false),
+              ),
             ),
           ),
         ),
-      ),
-      _buildListTile(
-        'Get Help',
-        'Access Q/A support',
-        Icons.help_outline,
-        () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const HelpScreen()),
+        _buildListTile(
+          'Get Help',
+          'Access Q/A support',
+          Icons.help_outline,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const HelpScreen()),
+          ),
         ),
-      ),
-      _buildListTile(
-        'Saved Stores',
-        'View your starred stores',
-        Icons.store,
-        () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => SavedStoresScreen(uid: uid)),
+        _buildListTile(
+          'Saved Stores',
+          'View your starred stores',
+          Icons.store,
+          () {
+            final user = fbAuth.FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SavedStoresScreen(uid: user.uid),
+                ),
+              );
+            }
+          },
         ),
-      ),
-      _buildListTile(
-        'Privacy',
-        'Learn about how your location is used',
-        Icons.privacy_tip_outlined,
-        () => _showPrivacyDialog(context),
-      ),
-    ],
-  );
-}
+        _buildListTile(
+          'Privacy',
+          'Learn about how your location is used',
+          Icons.privacy_tip_outlined,
+          () => _showPrivacyDialog(context),
+        ),
+      ],
+    );
+  }
 
-
-  // Build the Settings tab.
   Widget _buildSettingsTab(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     return ListView(
@@ -209,13 +299,13 @@ class ProfilePage extends StatelessWidget {
           'Rate Us',
           'Leave a review on the app store',
           Icons.rate_review_outlined,
-          () {
-            // Add your Rate Us functionality here.
-          },
+          () {},
         ),
         _buildListTile(
           themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
-          themeProvider.isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
+          themeProvider.isDarkMode
+              ? 'Switch to light mode'
+              : 'Switch to dark mode',
           themeProvider.isDarkMode ? Icons.wb_sunny : Icons.dark_mode,
           themeProvider.toggleTheme,
         ),
@@ -229,7 +319,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Helper method to build a ListTile.
   Widget _buildListTile(
     String title,
     String subtitle,
@@ -262,7 +351,7 @@ class ProfilePage extends StatelessWidget {
             child: DefaultTabController(
               length: 2,
               child: Column(
-                children: <Widget>[
+                children: [
                   Container(
                     color: Theme.of(context).cardColor,
                     child: const TabBar(
@@ -293,37 +382,41 @@ class ProfilePage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             IconButton(
-              icon: const Icon(Icons.star_outline, size: 21.0),
+              icon: const Icon(Icons.star_outline, size: 21),
               tooltip: 'Visits',
               onPressed: () => Navigator.pushNamed(context, '/review'),
             ),
             IconButton(
-              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
+              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21),
               tooltip: 'Featured',
               onPressed: () => Navigator.pushNamed(context, '/friends'),
             ),
             IconButton(
-              icon: const Icon(Icons.home_outlined, size: 21.0),
+              icon: const Icon(Icons.home_outlined, size: 21),
               tooltip: 'Home',
               onPressed: () {
-                final fbAuth.User? user = fbAuth.FirebaseAuth.instance.currentUser;
+                final user = fbAuth.FirebaseAuth.instance.currentUser;
                 if (user != null && user.uid.isNotEmpty) {
-                  Navigator.pushReplacementNamed(context, '/main', arguments: user.uid);
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/main',
+                    arguments: user.uid,
+                  );
                 } else {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
               },
             ),
             IconButton(
-              icon: const Icon(Icons.map_outlined, size: 21.0),
+              icon: const Icon(Icons.map_outlined, size: 21),
               tooltip: 'Map',
               onPressed: () => Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(
-              icon: const Icon(Icons.person_outline, size: 21.0),
+              icon: const Icon(Icons.person_outline, size: 21),
               tooltip: 'Profile',
               onPressed: () {
-                // Already on the profile page.
+                // Already on profile page
               },
             ),
           ],

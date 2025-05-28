@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
 
-// A history entry: key + data map (description, timestamp, boxAsset)
+// History entry holds id and data map
 typedef HistoryItem = MapEntry<String, Map<String, dynamic>>;
 
 /// Mystery box model
@@ -17,16 +17,20 @@ class _MysteryBox {
   final int cost;
   final Color color;
   final String asset;
+
   const _MysteryBox(this.title, this.cost, this.color, this.asset);
 }
 
-/// Splash screen after opening a box
+/// Splash shown after opening a box
 class RewardSplashPage extends StatelessWidget {
   final int reward;
   final String stickerAsset;
-  const RewardSplashPage(
-      {Key? key, required this.reward, required this.stickerAsset})
-      : super(key: key);
+
+  const RewardSplashPage({
+    Key? key,
+    required this.reward,
+    required this.stickerAsset,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -40,10 +44,16 @@ class RewardSplashPage extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               '+\$$reward coins!',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            const Text('New Sticker Unlocked!', style: TextStyle(fontSize: 18)),
+            const Text(
+              'New Sticker Unlocked!',
+              style: TextStyle(fontSize: 18),
+            ),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
@@ -56,12 +66,16 @@ class RewardSplashPage extends StatelessWidget {
   }
 }
 
-/// Detailed page to confirm box purchase
+/// Confirmation page before opening a box
 class BoxDetailPage extends StatelessWidget {
   final _MysteryBox box;
   final VoidCallback onConfirm;
-  const BoxDetailPage({Key? key, required this.box, required this.onConfirm})
-      : super(key: key);
+
+  const BoxDetailPage({
+    Key? key,
+    required this.box,
+    required this.onConfirm,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -85,8 +99,7 @@ class BoxDetailPage extends StatelessWidget {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: box.color,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
               onPressed: () {
                 onConfirm();
@@ -101,9 +114,10 @@ class BoxDetailPage extends StatelessWidget {
   }
 }
 
-/// Main Store page with three tabs: Collection, Shop, History
+/// Store page with tabs: Collection, Shop, History
 class StorePage extends StatefulWidget {
   const StorePage({Key? key}) : super(key: key);
+
   @override
   _StorePageState createState() => _StorePageState();
 }
@@ -115,11 +129,12 @@ class _StorePageState extends State<StorePage> {
   int _coins = 0;
   Map<int, int> _stickerCounts = {};
   List<HistoryItem> _history = [];
+  Map<int, bool> _sellSelections = {};
 
-  final List<_MysteryBox> _boxes = [
-    const _MysteryBox('Bronze Box', 5, Colors.brown, 'assets/bronze_box.png'),
-    const _MysteryBox('Silver Box', 10, Colors.grey, 'assets/silver_box.png'),
-    const _MysteryBox('Gold Box', 20, Colors.amber, 'assets/gold_box.png'),
+  final List<_MysteryBox> _boxes = const [
+    _MysteryBox('Bronze Box', 5, Colors.brown, 'assets/bronze_box.png'),
+    _MysteryBox('Silver Box', 10, Colors.grey, 'assets/silver_box.png'),
+    _MysteryBox('Gold Box', 20, Colors.amber, 'assets/gold_box.png'),
   ];
 
   @override
@@ -134,37 +149,39 @@ class _StorePageState extends State<StorePage> {
     _uid = user.uid;
     _userRef = FirebaseDatabase.instance.ref('users/$_uid');
 
-    // Listen for coin changes in real time
+    final coinSnap = await _userRef.child('coins').get();
+    if (!coinSnap.exists) {
+      await _userRef.child('coins').set(20);
+    }
     _coinSub = _userRef.child('coins').onValue.listen((event) {
       final val = event.snapshot.value;
       if (val is int) setState(() => _coins = val);
     });
 
-    // One-time load: stickers & history
+    // Load stickers
     final stickerSnap = await _userRef.child('stickers').get();
-    final historySnap = await _userRef.child('history').get();
-
     final counts = <int, int>{};
     if (stickerSnap.exists) {
       final data = Map<String, dynamic>.from(stickerSnap.value as Map);
       for (var v in data.values) {
-        final path = v['asset'] as String;
-        final m = RegExp(r'sticker(\d+)\.png').firstMatch(path);
+        final m = RegExp(r'sticker(\d+)\.png').firstMatch(v['asset']);
         if (m != null) {
-          final num = int.parse(m.group(1)!);
-          counts[num] = (counts[num] ?? 0) + 1;
+          final slot = int.parse(m.group(1)!);
+          counts[slot] = (counts[slot] ?? 0) + 1;
         }
       }
     }
 
+    // Load history
+    final histSnap = await _userRef.child('history').get();
     final hist = <HistoryItem>[];
-    if (historySnap.exists) {
-      final data = Map<String, dynamic>.from(historySnap.value as Map);
+    if (histSnap.exists) {
+      final data = Map<String, dynamic>.from(histSnap.value as Map);
       data.forEach((k, v) {
         hist.add(MapEntry(k, Map<String, dynamic>.from(v as Map)));
       });
-      hist.sort((a, b) => DateTime.parse(b.value['timestamp'] as String)
-          .compareTo(DateTime.parse(a.value['timestamp'] as String)));
+      hist.sort((a, b) => DateTime.parse(b.value['timestamp'])
+          .compareTo(DateTime.parse(a.value['timestamp'])));
     }
 
     setState(() {
@@ -179,39 +196,103 @@ class _StorePageState extends State<StorePage> {
     super.dispose();
   }
 
-  Future<void> _openBox(_MysteryBox box) async {
-    if (_coins < box.cost) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Not enough coins')));
-      return;
+ Future<void> _openBox(_MysteryBox box) async {
+  if (_coins < box.cost) {
+    ScaffoldMessenger.of(context)
+      .showSnackBar(const SnackBar(content: Text('Not enough coins')));
+    return;
+  }
+  final reward = Random().nextInt(1) + 3;
+  await _userRef.child('coins').set(_coins - box.cost + reward);
+
+  // 1) Determine sticker ID range based on box:
+  List<int> pool;
+  if (box.title == 'Bronze Box') {
+    pool = List.generate(24, (i) => i + 1);       // 1–24
+  } else if (box.title == 'Silver Box') {
+    pool = List.generate(11, (i) => i + 25);      // 25–35
+  } else {
+    pool = List.generate(15, (i) => i + 36);      // 36–50
+  }
+
+  // 2) Build a weight map: higher IDs = rarer,
+  //    so weight = (maxID + 1) - id  → 1 is most common.
+  final maxId = pool.reduce(max);
+  final weights = <int,int>{
+    for (final id in pool) id: (maxId + 1) - id,
+  };
+
+  // 3) Do a weighted random pick:
+  final totalWeight = weights.values.reduce((a, b) => a + b);
+  var rnd = Random().nextInt(totalWeight);
+  int chosenId = pool.first;
+  for (final id in pool) {
+    rnd -= weights[id]!;
+    if (rnd < 0) {
+      chosenId = id;
+      break;
     }
-    final reward = Random().nextInt(6) + 20;
-    await _userRef.child('coins').set(_coins - box.cost + reward);
+  }
 
-    // Push sticker
-    final assets = List.generate(50, (i) => 'assets/sticker${i + 1}.png');
-    final sticker = assets[Random().nextInt(assets.length)];
-    await _userRef.child('stickers').push().set({'asset': sticker});
+  final sticker = 'assets/sticker$chosenId.png';
+  await _userRef.child('stickers').push().set({'asset': sticker});
 
-    // Push history entry
-    await _userRef.child('history').push().set({
-      'description': 'Opened ${box.title}: +\$$reward coins',
-      'timestamp': DateTime.now().toIso8601String(),
-      'boxAsset': box.asset,
+  // …the rest of your history + splash logic remains unchanged:
+  await _userRef.child('history').push().set({
+    'description': 'Opened ${box.title}: +\$$reward coins',
+    'timestamp': DateTime.now().toIso8601String(),
+    'boxAsset': box.asset,
+  });
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => RewardSplashPage(reward: reward, stickerAsset: sticker),
+    ),
+  ).then((_) => _initUser());
+}
+
+
+  Future<void> _sellSelected() async {
+    int total = 0;
+    final toSell = <int>[];
+    _sellSelections.forEach((slot, sel) {
+      if (sel && (_stickerCounts[slot] ?? 0) > 0) {
+        final rate = slot <= 20 ? 1 : slot <= 39 ? 2 : 5;
+        total += rate;
+        toSell.add(slot);
+      }
     });
+    if (total > 0) {
+      await _userRef.child('coins').set(_coins + total);
 
-    // Show splash
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RewardSplashPage(reward: reward, stickerAsset: sticker),
-      ),
-    ).then((_) => _initUser());
+      // Remove sold stickers
+      final stickersRef = _userRef.child('stickers');
+      final snap = await stickersRef.get();
+      if (snap.exists) {
+        final data = Map<String, dynamic>.from(snap.value as Map);
+        for (var key in data.keys) {
+          final m = RegExp(r'sticker(\d+)\.png')
+              .firstMatch(data[key]['asset']);
+          if (m != null && toSell.contains(int.parse(m.group(1)!))) {
+            await stickersRef.child(key).remove();
+            toSell.remove(int.parse(m.group(1)!));
+            if (toSell.isEmpty) break;
+          }
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sold for $total coins!')));
+      _sellSelections.clear();
+      await _initUser();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context);
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -226,7 +307,8 @@ class _StorePageState extends State<StorePage> {
         body: Column(
           children: [
             TabBar(
-              indicatorColor: theme.isDarkMode ? Colors.amber : Colors.orange,
+              indicatorColor:
+                  theme.isDarkMode ? Colors.amber : Colors.orange,
               labelColor: theme.isDarkMode ? Colors.white : Colors.black,
               tabs: const [
                 Tab(text: 'Collection'),
@@ -237,7 +319,7 @@ class _StorePageState extends State<StorePage> {
             Expanded(
               child: TabBarView(
                 children: [
-                  // COLLECTION
+                  // Collection
                   Padding(
                     padding: const EdgeInsets.all(12),
                     child: GridView.builder(
@@ -250,7 +332,7 @@ class _StorePageState extends State<StorePage> {
                       itemCount: 50,
                       itemBuilder: (context, index) {
                         final slot = index + 1;
-                        final cnt = _stickerCounts[slot] ?? 0;
+                        final count = _stickerCounts[slot] ?? 0;
                         return Stack(
                           children: [
                             Container(
@@ -259,26 +341,31 @@ class _StorePageState extends State<StorePage> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Center(
-                                child: cnt > 0
+                                child: count > 0
                                     ? Image.asset('assets/sticker$slot.png')
-                                    : Text('$slot',
-                                        style: const TextStyle(
-                                            color: Colors.grey)),
+                                    : Text(
+                                        '$slot',
+                                        style:
+                                            const TextStyle(color: Colors.grey),
+                                      ),
                               ),
                             ),
-                            if (cnt > 1)
+                            if (count > 1)
                               Positioned(
-                                top: 4,
-                                right: 4,
+                                top: 2,
+                                right: 2,
                                 child: Container(
-                                  padding: const EdgeInsets.all(4),
+                                  padding: const EdgeInsets.all(2),
                                   decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle),
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
                                   child: Text(
-                                    '$cnt',
+                                    '$count',
                                     style: const TextStyle(
-                                        color: Colors.white, fontSize: 12),
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -287,14 +374,16 @@ class _StorePageState extends State<StorePage> {
                       },
                     ),
                   ),
-                  // SHOP
-                  Padding(
+
+                  // Shop
+                  SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 16),
                           child: Row(
                             children: [
                               Image.asset('assets/coin_boba.png',
@@ -315,15 +404,16 @@ class _StorePageState extends State<StorePage> {
                         ),
                         const SizedBox(height: 24),
                         SizedBox(
-                          height: 250,
+                          height: 300,
                           child: PageView.builder(
-                            controller: PageController(viewportFraction: 0.6),
+                            controller:
+                                PageController(viewportFraction: 0.6),
                             itemCount: _boxes.length,
                             itemBuilder: (context, idx) {
                               final box = _boxes[idx];
                               return Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8),
                                 child: GestureDetector(
                                   onTap: () => Navigator.push(
                                     context,
@@ -334,45 +424,48 @@ class _StorePageState extends State<StorePage> {
                                       ),
                                     ),
                                   ),
-                                  child: SizedBox(
-                                    height: 300, // ↑ bump this up from 180
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: box.color, width: 2),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Image.asset(box.asset,
-                                              width: 100, height: 100),
-                                          const SizedBox(height: 12),
-                                          Text(box.title,
-                                              style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: box.color)),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text('${box.cost}',
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleMedium),
-                                              const SizedBox(width: 4),
-                                              Image.asset(
-                                                  'assets/coin_boba.png',
-                                                  width: 25,
-                                                  height: 25),
-                                            ],
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                          color: box.color, width: 4),
+                                      borderRadius:
+                                          BorderRadius.circular(16),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Image.asset(box.asset,
+                                            width: 100, height: 100),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          box.title,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: box.color,
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '${box.cost}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Image.asset(
+                                                'assets/coin_boba.png',
+                                                width: 25,
+                                                height: 25),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -380,32 +473,90 @@ class _StorePageState extends State<StorePage> {
                             },
                           ),
                         ),
+
+                        const SizedBox(height: 24),
+                        // Sell Stickers
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'Sell Stickers for Coins',
+                            style:
+                                Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics:
+                              const NeverScrollableScrollPhysics(),
+                          itemCount: _stickerCounts.length,
+                          itemBuilder: (context, idx) {
+                            final slot =
+                                _stickerCounts.keys.elementAt(idx);
+                            final quantity = _stickerCounts[slot]!;
+                            final rate =
+                                slot <= 20 ? 1 : slot <= 39 ? 2 : 5;
+                            return CheckboxListTile(
+                              value:
+                                  _sellSelections[slot] ?? false,
+                              onChanged: (sel) => setState(
+                                  () => _sellSelections[slot] =
+                                      sel!),
+                              title: Row(
+                                children: [
+                                  Image.asset(
+                                      'assets/sticker$slot.png',
+                                      width: 32,
+                                      height: 32),
+                                  const SizedBox(width: 8),
+                                  Text('x$quantity'),
+                                  const Spacer(),
+                                  Image.asset(
+                                      'assets/coin_boba.png',
+                                      width: 16,
+                                      height: 16),
+                                  const SizedBox(width: 4),
+                                  Text('$rate'),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: ElevatedButton(
+                            onPressed: _sellSelected,
+                            child: const Text(
+                                'Convert Selected to Coins'),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  // HISTORY
+
+                  // History
                   Padding(
                     padding: const EdgeInsets.all(12),
                     child: ListView.separated(
                       itemCount: _history.length,
                       separatorBuilder: (_, __) => const Divider(),
                       itemBuilder: (context, idx) {
-                        final entry = _history[idx].value;
-                        final boxAsset = entry['boxAsset'] as String?;
-                        final tsRaw = entry['timestamp'] as String? ?? '';
-                        final timeOnly = tsRaw.isNotEmpty
-                            ? DateTime.parse(tsRaw)
+                        final item = _history[idx].value;
+                        final asset = item['boxAsset'] as String?;
+                        final ts = item['timestamp'] as String?;
+                        final time = ts != null
+                            ? DateTime.parse(ts)
                                 .toLocal()
                                 .toString()
                                 .split('.')[0]
                             : '';
-                        final desc = entry['description'] as String? ?? '';
-
+                        final desc = item['description'] as String? ?? '';
                         return ListTile(
-                          leading: boxAsset != null
-                              ? Image.asset(boxAsset, width: 32, height: 32)
-                              : const SizedBox(width: 32, height: 32),
-                          title: Text(timeOnly),
+                          leading: asset != null
+                              ? Image.asset(asset,
+                                  width: 32, height: 32)
+                              : const SizedBox(
+                                  width: 32, height: 32),
+                          title: Text(time),
                           subtitle: Text(desc),
                         );
                       },
@@ -422,33 +573,44 @@ class _StorePageState extends State<StorePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               IconButton(
-                  icon: const Icon(Icons.star_outline, size: 21),
-                  tooltip: 'Visits',
-                  onPressed: () => Navigator.pushNamed(context, '/review')),
+                icon: const Icon(Icons.star_outline, size: 21),
+                tooltip: 'Visits',
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/review'),
+              ),
               IconButton(
-                  icon:
-                      const Icon(Icons.emoji_food_beverage_outlined, size: 21),
-                  tooltip: 'Featured',
-                  onPressed: () => Navigator.pushNamed(context, '/featured')),
+                icon: const Icon(Icons.emoji_food_beverage_outlined,
+                    size: 21),
+                tooltip: 'Featured',
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/featured'),
+              ),
               IconButton(
-                  icon: const Icon(Icons.home_outlined, size: 21),
-                  tooltip: 'Home',
-                  onPressed: () {
-                    if (_uid.isNotEmpty)
-                      Navigator.pushReplacementNamed(context, '/main',
-                          arguments: _uid);
-                    else
-                      Navigator.pushReplacementNamed(context, '/login');
-                  }),
+                icon: const Icon(Icons.home_outlined, size: 21),
+                tooltip: 'Home',
+                onPressed: () {
+                  if (_uid.isNotEmpty) {
+                    Navigator.pushReplacementNamed(
+                        context, '/main',
+                        arguments: _uid);
+                  } else {
+                    Navigator.pushReplacementNamed(
+                        context, '/login');
+                  }
+                },
+              ),
               IconButton(
-                  icon: const Icon(Icons.map_outlined, size: 21),
-                  tooltip: 'Map',
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/notifications')),
+                icon: const Icon(Icons.map_outlined, size: 21),
+                tooltip: 'Map',
+                onPressed: () => Navigator.pushNamed(
+                    context, '/notifications'),
+              ),
               IconButton(
-                  icon: const Icon(Icons.person_outline, size: 21),
-                  tooltip: 'Profile',
-                  onPressed: () => Navigator.pushNamed(context, '/profile')),
+                icon: const Icon(Icons.person_outline, size: 21),
+                tooltip: 'Profile',
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/profile'),
+              ),
             ],
           ),
         ),
