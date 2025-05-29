@@ -1,11 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:test/locations/boba_store.dart';
 
-/// Screen showing details for a given BobaStore and handling visit detection
+/// Production-ready redesign of the store details screen, preserving all existing components.
 class StoreDetailsScreen extends StatefulWidget {
   final BobaStore store;
   final Position userPosition;
@@ -23,66 +24,75 @@ class StoreDetailsScreen extends StatefulWidget {
 }
 
 class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
-  bool visitRecorded = false;
-  bool _timerActive = false;
-  int _timeRemaining = 30;
-  Timer? _locationTimer;
+  static const double _proximityThreshold = 20.0;
+  static const int _countdownStart = 30;
+
+  bool _visitRecorded = false;
+  bool _isCountingDown = false;
+  int _secondsLeft = _countdownStart;
+
+  Timer? _proximityTimer;
   Timer? _countdownTimer;
   Position? _currentPosition;
-  static const _threshold = 20.0;
-  static const _countdownStart = 30;
 
   @override
   void initState() {
     super.initState();
     _currentPosition = widget.userPosition;
-    _locationTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _checkProximity(),
-    );
+    _startProximityMonitoring();
   }
 
   @override
   void dispose() {
-    _locationTimer?.cancel();
+    _proximityTimer?.cancel();
     _countdownTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _checkProximity() async {
+  void _startProximityMonitoring() {
+    _proximityTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _checkProximityAndUpdate(),
+    );
+  }
+
+  Future<void> _checkProximityAndUpdate() async {
     try {
       final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+        desiredAccuracy: LocationAccuracy.high,
+      );
       _currentPosition = pos;
-      final dist = Geolocator.distanceBetween(
+      final distance = Geolocator.distanceBetween(
         pos.latitude,
         pos.longitude,
         widget.store.latitude,
         widget.store.longitude,
       );
-      if (dist <= _threshold && !_timerActive && !visitRecorded) {
+
+      if (distance <= _proximityThreshold && !_isCountingDown && !_visitRecorded) {
         _startCountdown();
-      } else if (dist > _threshold && _timerActive) {
+      } else if (distance > _proximityThreshold && _isCountingDown) {
         _resetCountdown();
       }
     } catch (e) {
-      debugPrint('Position error: $e');
+      debugPrint('Proximity error: $e');
     }
   }
 
   void _startCountdown() {
     setState(() {
-      _timerActive = true;
-      _timeRemaining = _countdownStart;
+      _isCountingDown = true;
+      _secondsLeft = _countdownStart;
     });
+
     _countdownTimer = Timer.periodic(
       const Duration(seconds: 1),
-      (t) async {
-        if (_timeRemaining > 0) {
-          setState(() => _timeRemaining--);
+      (timer) {
+        if (_secondsLeft > 0) {
+          setState(() => _secondsLeft--);
         } else {
-          t.cancel();
-          await _finalizeVisit();
+          timer.cancel();
+          _finalizeVisit();
         }
       },
     );
@@ -91,26 +101,27 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
   void _resetCountdown() {
     _countdownTimer?.cancel();
     setState(() {
-      _timerActive = false;
-      _timeRemaining = _countdownStart;
+      _isCountingDown = false;
+      _secondsLeft = _countdownStart;
     });
   }
 
   Future<void> _finalizeVisit() async {
     try {
       final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      final dist = Geolocator.distanceBetween(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final distance = Geolocator.distanceBetween(
         pos.latitude,
         pos.longitude,
         widget.store.latitude,
         widget.store.longitude,
       );
-      if (dist <= _threshold) {
+      if (distance <= _proximityThreshold) {
         await _recordVisit(pos);
         setState(() {
-          visitRecorded = true;
-          _timerActive = false;
+          _visitRecorded = true;
+          _isCountingDown = false;
         });
       } else {
         _resetCountdown();
@@ -121,22 +132,21 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
     }
   }
 
-  Future<void> _recordVisit(Position position) async {
-    // Unique visit under userVisits
+  Future<void> _recordVisit(Position pos) async {
     final userVisitRef = FirebaseDatabase.instance
         .ref('userVisits/${widget.userId}/${widget.store.id}');
     if ((await userVisitRef.get()).exists) return;
 
-    // 1) add to visits
+    // 1) add global visit
     await FirebaseDatabase.instance
         .ref('visits/${widget.store.id}/${widget.userId}')
         .set({
       'timestamp': DateTime.now().toIso8601String(),
-      'latitude': position.latitude,
-      'longitude': position.longitude,
+      'latitude': pos.latitude,
+      'longitude': pos.longitude,
     });
 
-    // 2) increment store visits
+    // 2) increment store's visits counter
     final storeRef = FirebaseDatabase.instance
         .ref('stores/${widget.store.city}/${widget.store.id}');
     await storeRef.runTransaction((data) {
@@ -148,30 +158,31 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
       return Transaction.success(data);
     });
 
-    // 3) mark userVisits
+    // 3) mark user visit
     await userVisitRef.set({
       'timestamp': DateTime.now().toIso8601String(),
-      'latitude': position.latitude,
-      'longitude': position.longitude,
+      'latitude': pos.latitude,
+      'longitude': pos.longitude,
     });
 
-    // 4) award one coin
+    // 4) award a coin
     final coinRef = FirebaseDatabase.instance
         .ref('users/${widget.userId}/coins');
     final coinSnap = await coinRef.get();
-    final curr = coinSnap.exists ? coinSnap.value as int : 0;
-    await coinRef.set(curr + 1);
+    final current = (coinSnap.value as int?) ?? 0;
+    await coinRef.set(current + 1);
 
     debugPrint('Visit recorded & 1 coin awarded');
   }
 
-  Future<void> _openMaps() async {
+  Future<void> _launchMaps() async {
     final uri = Uri.https(
       'www.google.com',
       'maps/search/',
       {
         'api': '1',
-        'query': '${widget.store.latitude},${widget.store.longitude}'
+        'query':
+            '${widget.store.latitude},${widget.store.longitude}',
       },
     );
     if (await canLaunchUrl(uri)) {
@@ -181,57 +192,102 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dist = _currentPosition == null
-        ? 0
-        : Geolocator.distanceBetween(
+    final distance = _currentPosition != null
+        ? Geolocator.distanceBetween(
             _currentPosition!.latitude,
             _currentPosition!.longitude,
             widget.store.latitude,
             widget.store.longitude,
-          );
-    final miles = (dist / 1000) * 0.621371;
+          )
+        : 0.0;
+    final miles = (distance / 1000) * 0.621371;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.store.name),
         centerTitle: true,
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.store, size: 100, color: Colors.grey),
-              const SizedBox(height: 24),
-              Text('Distance: ${miles.toStringAsFixed(2)} mi',
-                  style: const TextStyle(fontSize: 18)),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: _openMaps,
-                child: Text(
-                  '${widget.store.address}\n'
-                  '${widget.store.city}, ${widget.store.state} ${widget.store.zip}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.blue,
-                    decoration: TextDecoration.underline,
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Store icon & distance row
+            Row(
+              children: [
+                Icon(Icons.store, size: 80, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    '${miles.toStringAsFixed(2)} mi away',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Address card with tappable maps link
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: InkWell(
+                onTap: _launchMaps,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.store.address, style: TextStyle(fontSize: 16)),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${widget.store.city}, ${widget.store.state} ${widget.store.zip}',
+                        style: TextStyle(color: Colors.blue),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Icon(Icons.launch, size: 20, color: Colors.blue),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              if (visitRecorded)
-                const Text('Visit recorded!',
-                    style: TextStyle(fontSize: 16, color: Colors.green))
-              else if (_timerActive)
-                Text('\$_timeRemaining sec to record visit',
-                    style: const TextStyle(fontSize: 16, color: Colors.orange))
-              else
-                const Text('Move closer to record visit',
-                    style: TextStyle(fontSize: 16, color: Colors.red)),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+
+            // Proximity / countdown / done indicator
+            Center(
+              child: _visitRecorded
+                  ? Chip(
+                      label: const Text('Visit Recorded'),
+                      backgroundColor: Colors.green.shade600,
+                      labelStyle: const TextStyle(color: Colors.white),
+                    )
+                  : _isCountingDown
+                      ? Column(
+                          children: [
+                            Text(
+                              'Recording in $_secondsLeft s...',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.orange.shade800),
+                            ),
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: (_countdownStart - _secondsLeft) /
+                                  _countdownStart,
+                            ),
+                          ],
+                        )
+                      : Text(
+                          'Move closer to record visit',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 16, color: Colors.red.shade600),
+                        ),
+            ),
+          ],
         ),
       ),
     );

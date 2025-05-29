@@ -268,16 +268,47 @@ class MissionsScreen extends StatefulWidget {
 }
 
 class _MissionsScreenState extends State<MissionsScreen> {
+  // --- your existing visit‐tracking fields ---
   Timer? _visitTimer;
   bool _visitRegistered = false;
   final thresholdMeters = 3.05;
   Timer? _locationCheckTimer;
 
+  // --- new coin‐reward fields ---
+  late final DatabaseReference _coinsRef;
+  late final DatabaseReference _rewardsRef;
+  Set<int> _alreadyRewarded = {};
+
   @override
   void initState() {
     super.initState();
+
+    // point at /users/<uid>/coins
+    _coinsRef = FirebaseDatabase.instance
+      .ref()
+      .child('users')
+      .child(widget.userId)
+      .child('coins');
+
+    // point at /userMissionRewards/<uid>/
+    _rewardsRef = FirebaseDatabase.instance
+      .ref()
+      .child('userMissionRewards')
+      .child(widget.userId);
+
+    // load which missions have already been rewarded
+    _rewardsRef.get().then((snap) {
+      if (snap.exists) {
+        final data = Map<String, dynamic>.from(snap.value as Map);
+        setState(() {
+          _alreadyRewarded = data.keys.map(int.parse).toSet();
+        });
+      }
+    });
+
+    // start your periodic location check
     _locationCheckTimer =
-        Timer.periodic(Duration(seconds: 5), (_) => _checkLocation());
+      Timer.periodic(const Duration(seconds: 5), (_) => _checkLocation());
   }
 
   @override
@@ -291,25 +322,25 @@ class _MissionsScreenState extends State<MissionsScreen> {
     Position pos;
     try {
       pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+        desiredAccuracy: LocationAccuracy.high
+      );
     } catch (_) {
       return;
     }
+
     final dist = Geolocator.distanceBetween(
-      pos.latitude,
-      pos.longitude,
-      widget.storeLatitude,
-      widget.storeLongitude,
+      pos.latitude, pos.longitude,
+      widget.storeLatitude, widget.storeLongitude
     );
+
     if (dist <= thresholdMeters && !_visitRegistered) {
-      _visitTimer ??= Timer(Duration(seconds: 30), () async {
+      _visitTimer ??= Timer(const Duration(seconds: 30), () async {
         final updated = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
+          desiredAccuracy: LocationAccuracy.high
+        );
         final updatedDist = Geolocator.distanceBetween(
-          updated.latitude,
-          updated.longitude,
-          widget.storeLatitude,
-          widget.storeLongitude,
+          updated.latitude, updated.longitude,
+          widget.storeLatitude, widget.storeLongitude
         );
         if (updatedDist <= thresholdMeters) {
           await _registerVisit(updated);
@@ -325,10 +356,11 @@ class _MissionsScreenState extends State<MissionsScreen> {
 
   Future<void> _registerVisit(Position pos) async {
     final visitsRef = FirebaseDatabase.instance
-        .ref()
-        .child('userVisits')
-        .child(widget.userId)
-        .child(widget.storeId);
+      .ref()
+      .child('userVisits')
+      .child(widget.userId)
+      .child(widget.storeId);
+
     final snap = await visitsRef.get();
     if (!snap.exists) {
       await visitsRef.set({
@@ -336,11 +368,13 @@ class _MissionsScreenState extends State<MissionsScreen> {
         'latitude': pos.latitude,
         'longitude': pos.longitude,
       });
+      // increment global store visits
       final storeRef = FirebaseDatabase.instance
-          .ref()
-          .child('stores')
-          .child(widget.storeCity)
-          .child(widget.storeId);
+        .ref()
+        .child('stores')
+        .child(widget.storeCity)
+        .child(widget.storeId);
+
       await storeRef.runTransaction((data) {
         if (data != null) {
           final map = Map<String, dynamic>.from(data as Map);
@@ -387,7 +421,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
         title: Text(title),
         content: Text(msg),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'))
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
         ],
       ),
     );
@@ -395,29 +429,20 @@ class _MissionsScreenState extends State<MissionsScreen> {
 
   Widget buildMissionRow(Mission m, bool active) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final cardColor = isDark ? Color(0xFF2E004F) : Colors.white;
+    final cardColor = isDark ? const Color(0xFF2E004F) : Colors.white;
     final textColor = active
         ? (isDark ? Colors.white : Colors.black)
         : (isDark ? Colors.grey : Colors.grey.shade600);
 
-    final lockIcon = Icon(
-      Icons.lock,
-      size: 40,
-      color: isDark ? Colors.black : Colors.grey,
-    );
-    final checkIcon = Icon(
-      Icons.check,
-      size: 40,
-      color: isDark ? Colors.blueAccent : Colors.green,
-    );
+    final lockIcon = Icon(Icons.lock, size: 40, color: isDark ? Colors.black : Colors.grey);
+    final checkIcon = Icon(Icons.check, size: 40, color: isDark ? Colors.blueAccent : Colors.green);
 
     Widget row = Card(
       color: cardColor,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Expanded(
@@ -426,34 +451,24 @@ class _MissionsScreenState extends State<MissionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(m.title,
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w300,
-                          color: textColor)),
-                  SizedBox(height: 4),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w300, color: textColor)),
+                  const SizedBox(height: 4),
                   Text(m.description,
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          color: textColor),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300, color: textColor),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-            SizedBox(width: 16),
+            const SizedBox(width: 16),
             Expanded(
               flex: 1,
               child: Column(
                 children: [
-                  SegmentedProgressIndicator(
-                      current: m.current, goal: m.goal, spacing: 4),
-                  SizedBox(height: 4),
+                  SegmentedProgressIndicator(current: m.current, goal: m.goal, spacing: 4),
+                  const SizedBox(height: 4),
                   Text('${m.current}/${m.goal}',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                          color: textColor)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w300, color: textColor)),
                 ],
               ),
             ),
@@ -468,8 +483,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              color:
-                  (isDark ? Colors.black : Colors.white).withOpacity(0.6),
+              color: (isDark ? Colors.black : Colors.white).withOpacity(0.6),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(child: checkIcon),
@@ -482,8 +496,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              color:
-                  (isDark ? Colors.black : Colors.white).withOpacity(0.6),
+              color: (isDark ? Colors.black : Colors.white).withOpacity(0.6),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(child: lockIcon),
@@ -491,10 +504,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
         )
       ]);
     } else {
-      row = InkWell(
-        onTap: () => _showInfo(m.title, m.description),
-        child: row,
-      );
+      row = InkWell(onTap: () => _showInfo(m.title, m.description), child: row);
     }
 
     return row;
@@ -511,12 +521,13 @@ class _MissionsScreenState extends State<MissionsScreen> {
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
-        title: Text('Missions'),
+        title: const Text('Missions'),
         centerTitle: true,
       ),
       body: StreamBuilder<DatabaseEvent>(
         stream: visitsRef.onValue,
         builder: (ctx, snap) {
+          // compute unique visits
           var unique = 0;
           var visitsMap = <dynamic, dynamic>{};
           if (snap.hasData && snap.data!.snapshot.value != null) {
@@ -525,8 +536,13 @@ class _MissionsScreenState extends State<MissionsScreen> {
           }
           final missions = buildMissions(unique);
 
+          // --- award coins for any newly completed missions ---
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _checkAndAwardRewards(missions);
+          });
+
           return SingleChildScrollView(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -535,7 +551,9 @@ class _MissionsScreenState extends State<MissionsScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.w300,
                         color: isDark ? Colors.white : Colors.black)),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
+
+                // —— Your BADGE ROW —— 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -549,29 +567,30 @@ class _MissionsScreenState extends State<MissionsScreen> {
                           color: isDark ? Colors.white70 : Colors.black54),
                       onPressed: () => _showInfo(
                           'Badges',
-                          'Tap a badge to flip: front shows store name; back shows date & location.'),
+                          'Tap a badge to flip: front shows store; back shows date & location.'),
                     ),
                   ],
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 SizedBox(
-                  height: 78, // badge size (70) + some padding
+                  height: 78, // badge size + padding
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: visitsMap.keys.length,
-                    separatorBuilder: (_, __) => SizedBox(width: 3),
+                    separatorBuilder: (_, __) => const SizedBox(width: 3),
                     itemBuilder: (ctx, i) {
                       final sid = visitsMap.keys.elementAt(i);
                       final ts = visitsMap[sid]['timestamp'] as String;
                       return BadgeCoin(
                         storeId: sid,
                         timestamp: ts,
-                        size: 70, // explicit size
+                        size: 70,
                       );
                     },
                   ),
                 ),
-                SizedBox(height: 24),
+
+                const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -586,14 +605,15 @@ class _MissionsScreenState extends State<MissionsScreen> {
                       onPressed: () => _showInfo(
                           'Missions',
                           'Only the current mission is active. Complete it to unlock the next.'),
-                    ),                ],
+                    ),
+                  ],
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 ListView.separated(
                   shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: missions.length,
-                  separatorBuilder: (_, __) => SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (ctx, idx) =>
                       buildMissionRow(missions[idx], isMissionActive(idx, unique)),
                 ),
@@ -604,4 +624,36 @@ class _MissionsScreenState extends State<MissionsScreen> {
       ),
     );
   }
+
+  /// Award coins (5×(index+1)) for any finished missions not yet rewarded.
+  Future<void> _checkAndAwardRewards(List<Mission> missions) async {
+    for (var i = 0; i < missions.length; i++) {
+      final m = missions[i];
+      if (m.current >= m.goal && !_alreadyRewarded.contains(i)) {
+        final reward = 5 * (i + 1); // 5, 10, 15, …
+
+        // read current balance
+        final coinSnap = await _coinsRef.get();
+        final currentCoins = (coinSnap.value as int?) ?? 0;
+        // update balance
+        await _coinsRef.set(currentCoins + reward);
+
+        // mark mission rewarded
+        await _rewardsRef.child(i.toString()).set({
+          'reward': reward,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+
+        _alreadyRewarded.add(i);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Mission "${m.title}" complete – +$reward coins!')),
+          );
+        }
+      }
+    }
+  }
 }
+
+

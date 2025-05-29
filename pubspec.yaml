@@ -129,8 +129,8 @@ flutter:
     - assets/happylemon_feat.png
     - assets/TNLboba_feat.png
 
-    - assets/spinner_cup.png
-
+# stickers 1 - 50
+    #Bronze
     - assets/sticker1.png
     - assets/sticker2.png
     - assets/sticker3.png
@@ -155,35 +155,37 @@ flutter:
     - assets/sticker22.png
     - assets/sticker23.png
     - assets/sticker24.png
+    #Silver
     - assets/sticker25.png
     - assets/sticker26.png
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    - assets/sticker27.png
+    - assets/sticker28.png
+    - assets/sticker29.png
+    - assets/sticker30.png
+    - assets/sticker31.png
+    - assets/sticker32.png
+    - assets/sticker33.png
+    - assets/sticker34.png
+    - assets/sticker35.png
+    #Gold
+    - assets/sticker36.png
+    - assets/sticker37.png
+    - assets/sticker38.png
+    - assets/sticker39.png
+    - assets/sticker40.png
+    - assets/sticker41.png
+    - assets/sticker42.png
+    - assets/sticker43.png
+    - assets/sticker44.png
     - assets/sticker45.png
+    - assets/sticker46.png
+    - assets/sticker47.png
+    - assets/sticker48.png
+    - assets/sticker49.png
+    - assets/sticker50.png
 
-
-
-
-
-
+# Shop tab
     - assets/coin_boba.png
-
     - assets/bronze_box.png
     - assets/silver_box.png
     - assets/gold_box.png
