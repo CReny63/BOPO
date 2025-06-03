@@ -9,9 +9,11 @@ import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/services/theme_provider.dart';
 
-/// A “coin‐stop” spinner with a 3D circle showing the store name.
-/// When in a 20m geofence, users can spin to log a visit and animate coins appearing.
-/// For testing: allows multiple spins by commenting out lockout logic.
+/// StoreDetailsScreen with interactive, popping bubbles for coins & sticker.
+///
+/// When spun, 1–5 coin bubbles float up (random horizontal offsets), each tappable
+/// to “pop” them. 1/5 spins also award one sticker bubble, tappable to pop.
+/// Underlying rewards (coins/sticker) are already credited in Firebase.
 class StoreDetailsScreen extends StatefulWidget {
   final BobaStore store;
   final Position userPosition;
@@ -35,15 +37,37 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
   Position? _currentPosition;
   bool _withinGeofence = false;
   bool _isSpinning = false;
-  // For testing: always allow spin. Remove _hasSpun.
 
+  // How many coins were awarded in the last spin
+  int _lastCoinCount = 0;
+
+  // Random horizontal offsets for each coin bubble (in pixels)
+  List<double> _coinXOffsets = [];
+
+  // Tracks whether each coin bubble is still “alive” (not popped)
+  List<bool> _coinAlive = [];
+
+  // If a sticker was awarded, its ID (1–30). Otherwise null.
+  int? _awardedSticker;
+
+  // Whether that sticker bubble is still “alive” (not popped)
+  bool _stickerAlive = false;
+
+  // Animation controllers:
   late final AnimationController _spinController;
   late final AnimationController _coinAnimController;
   late final Animation<double> _coinScale;
   late final Animation<double> _coinOpacity;
+  late final Animation<double> _coinOffset;
+
+  late final AnimationController _stickerAnimController;
+  late final Animation<double> _stickerScale;
+  late final Animation<double> _stickerOpacity;
+  late final Animation<double> _stickerOffset;
 
   late final DatabaseReference _coinsRef;
   late final DatabaseReference _userVisitRef;
+  late final DatabaseReference _stickersRef;
 
   Timer? _proximityTimer;
 
@@ -52,40 +76,53 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
     super.initState();
     _currentPosition = widget.userPosition;
 
-    // Firebase references
-    _coinsRef = FirebaseDatabase.instance.ref('users/${widget.userId}/coins');
+    _coinsRef =
+        FirebaseDatabase.instance.ref('users/${widget.userId}/coins');
     _userVisitRef = FirebaseDatabase.instance
         .ref('userVisits/${widget.userId}/${widget.store.id}');
+    _stickersRef =
+        FirebaseDatabase.instance.ref('users/${widget.userId}/stickers');
 
-    // Comment out lockout logic so multiple visits allowed:
-    // _userVisitRef.get().then((snapshot) {
-    //   if (snapshot.exists) {
-    //     setState(() => _hasSpun = true);
-    //   }
-    // });
-
-    // Animation for spinning
+    // 1) Spinner rotation controller (800ms)
     _spinController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
 
-    // Animation for coins appearing (scale + fade over 3 seconds)
+    // 2) Coin bubbles controller (4s total)
     _coinAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 4000),
     );
     _coinScale = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-        parent: _coinAnimController,
-        curve: Curves.elasticOut,
-      ),
+          parent: _coinAnimController, curve: Curves.elasticOut),
     );
     _coinOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
-        parent: _coinAnimController,
-        curve: Curves.easeOut,
-      ),
+          parent: _coinAnimController, curve: Curves.easeInOut),
+    );
+    _coinOffset = Tween<double>(begin: 0.0, end: -150.0).animate(
+      CurvedAnimation(
+          parent: _coinAnimController, curve: Curves.easeInOut),
+    );
+
+    // 3) Sticker bubble controller (4s total)
+    _stickerAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4000),
+    );
+    _stickerScale = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+          parent: _stickerAnimController, curve: Curves.elasticOut),
+    );
+    _stickerOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+          parent: _stickerAnimController, curve: Curves.easeInOut),
+    );
+    _stickerOffset = Tween<double>(begin: 0.0, end: -150.0).animate(
+      CurvedAnimation(
+          parent: _stickerAnimController, curve: Curves.easeInOut),
     );
 
     _startProximityMonitoring();
@@ -96,6 +133,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
     _proximityTimer?.cancel();
     _spinController.dispose();
     _coinAnimController.dispose();
+    _stickerAnimController.dispose();
     super.dispose();
   }
 
@@ -121,77 +159,102 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
       );
       final nowWithin = distance <= _proximityThreshold;
       if (nowWithin != _withinGeofence) {
-        setState(() {
-          _withinGeofence = nowWithin;
-        });
+        setState(() => _withinGeofence = nowWithin);
       }
     } catch (e) {
       debugPrint('Proximity error: $e');
     }
   }
 
-     Future<void> _onCircleTap() async {
-     if (!_withinGeofence || _isSpinning) return;
+  Future<void> _onCircleTap() async {
+    if (!_withinGeofence || _isSpinning) return;
 
-     setState(() => _isSpinning = true);
-     await _spinController.forward(from: 0);
+    setState(() {
+      _isSpinning = true;
+      _awardedSticker = null;
+      // Reset coin bubbles for new spin
+      _lastCoinCount = 0;
+      _coinXOffsets = [];
+      _coinAlive = [];
+      _stickerAlive = false;
+    });
 
-     final extra = Random().nextInt(3);
-     final totalReward = 5 + extra;
+    // 1) Spinner animation
+    await _spinController.forward(from: 0);
 
-     // --- ALWAYS record a new visit (even if this store was visited before) ---
-     // 1) record in “visits/<storeId>/<userId>”
-     await FirebaseDatabase.instance
-         .ref('visits/${widget.store.id}/${widget.userId}')
-         .set({
-       'timestamp': DateTime.now().toIso8601String(),
-       'latitude': _currentPosition!.latitude,
-       'longitude': _currentPosition!.longitude,
-     });
+    // 2) Decide # of coins to award (1–5)
+    final awardedCoins = Random().nextInt(5) + 1;
+    _lastCoinCount = awardedCoins;
 
-     // 2) increment “stores/<city>/<storeId>/visits”
-     final storeRef = FirebaseDatabase.instance
-         .ref('stores/${widget.store.city}/${widget.store.id}');
-     await storeRef.runTransaction((data) {
-       if (data != null) {
-         final map = Map<String, dynamic>.from(data as Map);
-         map['visits'] = (map['visits'] ?? 0) + 1;
-         return Transaction.success(map);
-       }
-       return Transaction.success(data);
-     });
+    // Generate random horizontal offsets in [-60..+60]
+    _coinXOffsets = List<double>.generate(
+      awardedCoins,
+      (_) => (Random().nextDouble() * 120) - 60,
+    );
+    _coinAlive = List<bool>.filled(awardedCoins, true);
 
-     // 3) mark “userVisits/<userId>/<storeId>” (this no longer gates uniqueness,
-     //    it simply records one “timestamp” per store, if you still need it.)
-     await _userVisitRef.set({
-       'timestamp': DateTime.now().toIso8601String(),
-       'latitude': _currentPosition!.latitude,
-       'longitude': _currentPosition!.longitude,
-     });
+    // 3) Record visit under “visits/<storeId>/<userId>”
+    await FirebaseDatabase.instance
+        .ref('visits/${widget.store.id}/${widget.userId}')
+        .set({
+      'timestamp': DateTime.now().toIso8601String(),
+      'latitude': _currentPosition!.latitude,
+      'longitude': _currentPosition!.longitude,
+    });
 
-   // 4) INCREMENT “userStoreVisits/<userId>/<storeId>” to track repeated visits:
- final userStoreVisitsRef = FirebaseDatabase.instance
-       .ref('userStoreVisits/${widget.userId}/${widget.store.id}');
-  await userStoreVisitsRef.runTransaction((data) {
-   final prev = (data as int?) ?? 0;
-   return Transaction.success(prev + 1);
-});
+    // 4) Increment global store visits
+    final storeRef = FirebaseDatabase.instance
+        .ref('stores/${widget.store.city}/${widget.store.id}');
+    await storeRef.runTransaction((data) {
+      if (data != null) {
+        final map = Map<String, dynamic>.from(data as Map);
+        map['visits'] = (map['visits'] ?? 0) + 1;
+        return Transaction.success(map);
+      }
+      return Transaction.success(data);
+    });
 
-     // 5) credit coins
-     final coinSnap = await _coinsRef.get();
-     final currentCoins = (coinSnap.value as int?) ?? 0;
-     await _coinsRef.set(currentCoins + totalReward);
+    // 5) Mark “userVisits/<userId>/<storeId>”
+    await _userVisitRef.set({
+      'timestamp': DateTime.now().toIso8601String(),
+      'latitude': _currentPosition!.latitude,
+      'longitude': _currentPosition!.longitude,
+    });
 
-     setState(() {
-       _isSpinning = false;
-     });
+    // 6) Increment “userStoreVisits/<userId>/<storeId>”
+    final userStoreVisitsRef = FirebaseDatabase.instance
+        .ref('userStoreVisits/${widget.userId}/${widget.store.id}');
+    await userStoreVisitsRef.runTransaction((data) {
+      final prev = (data as int?) ?? 0;
+      return Transaction.success(prev + 1);
+    });
 
-     // Trigger coin animation
-     _coinAnimController.forward(from: 0);
+    // 7) Credit coins in database
+    final coinSnap = await _coinsRef.get();
+    final currentCoins = (coinSnap.value as int?) ?? 0;
+    await _coinsRef.set(currentCoins + awardedCoins);
 
-     // (No lockout logic here—so you can tap multiple times.)
-   }
+    // 8) 1/5 chance to award sticker:
+    if (Random().nextInt(5) == 0) {
+      _awardedSticker = Random().nextInt(30) + 1; // 1..30
+      _stickerAlive = true;
+      // Immediately write a placeholder to the user’s sticker collection
+      final stickerAsset = 'assets/sticker$_awardedSticker.png';
+      await _stickersRef.push().set({'asset': stickerAsset});
+    }
 
+    setState(() => _isSpinning = false);
+
+    // Start coin bubble animation
+    _coinAnimController.forward(from: 0);
+
+    // If a sticker was awarded, start its animation after 500ms
+    if (_awardedSticker != null) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _stickerAnimController.forward(from: 0);
+      });
+    }
+  }
 
   Future<void> _launchMaps() async {
     final uri = Uri.https(
@@ -220,21 +283,18 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
         : 0.0;
     final miles = (distance / 1000) * 0.621371;
 
-    // Determine circle color: light-black→orange or white→purple
-    Color circleColor;
-    if (_withinGeofence) {
-      circleColor = theme.isDarkMode ? Colors.purpleAccent : Colors.orangeAccent;
-    } else {
-      circleColor = theme.isDarkMode ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2);
-    }
+    final ringColor = _withinGeofence
+        ? (theme.isDarkMode
+            ? const Color.fromARGB(255, 212, 0, 250)
+            : const Color.fromARGB(255, 0, 255, 13))
+        : (theme.isDarkMode
+            ? Colors.white.withOpacity(0.2)
+            : Colors.black.withOpacity(0.2));
 
-    // Determine status text
-    String statusText;
-    if (_withinGeofence) {
-      statusText = 'Tap circle to spin and collect coins';
-    } else {
-      statusText = 'Move closer to spin the circle';
-    }
+    final statusText = _withinGeofence
+        ? 'Tap to spin and record a visit!'
+        : 'Move closer to spin the coin';
+    final statusColor = _withinGeofence ? Colors.green : Colors.red;
 
     return Scaffold(
       appBar: AppBar(
@@ -244,16 +304,17 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1) Store icon & distance
+            // ── 1) Store icon & distance ───────────────────────────────
             Row(
               children: [
-                Icon(Icons.store,
-                    size: 80,
-                    color: theme.isDarkMode
-                        ? Colors.white
-                        : Theme.of(context).primaryColor),
+                Icon(
+                  Icons.store,
+                  size: 80,
+                  color: theme.isDarkMode
+                      ? Colors.white
+                      : Theme.of(context).primaryColor,
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -270,8 +331,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
             ),
 
             const SizedBox(height: 24),
-
-            // 2) Address card
+            // ── 2) Address card ───────────────────────────────────────
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -284,10 +344,12 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.store.address,
-                          style: theme.isDarkMode
-                              ? const TextStyle(color: Colors.white)
-                              : const TextStyle(color: Colors.black)),
+                      Text(
+                        widget.store.address,
+                        style: theme.isDarkMode
+                            ? const TextStyle(color: Colors.white)
+                            : const TextStyle(color: Colors.black),
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         '${widget.store.city}, ${widget.store.state} ${widget.store.zip}',
@@ -308,8 +370,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
             ),
 
             const SizedBox(height: 24),
-
-            // 3) Big 3D circle spinner with ring and coin animation overlay
+            // ── 3) 3D coin spinner + floating bubbles ────────────────
             Expanded(
               child: Center(
                 child: Stack(
@@ -317,24 +378,27 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                   children: [
                     // Outer ring
                     Container(
-                      width: 160,
-                      height: 160,
+                      width: 180,
+                      height: 180,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: theme.isDarkMode ? Colors.purple : Colors.orange,
-                          width: 4,
-                        ),
+                        border: Border.all(color: ringColor, width: 6),
                       ),
                     ),
+
+                    // Rotating coin (spinner)
                     AnimatedBuilder(
                       animation: _spinController,
-                      builder: (_, __) {
+                      builder: (context, _) {
                         final angle = _isSpinning
                             ? _spinController.value * 2 * pi
                             : 0.0;
-                        return Transform.rotate(
-                          angle: angle,
+                        final matrix = Matrix4.identity()
+                          ..setEntry(3, 2, 0.005)
+                          ..rotateY(angle);
+                        return Transform(
+                          transform: matrix,
+                          alignment: Alignment.center,
                           child: GestureDetector(
                             onTap: _onCircleTap,
                             child: Container(
@@ -343,15 +407,16 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: RadialGradient(
-                                  colors: [
-                                    circleColor,
-                                    circleColor.withOpacity(0.9),
-                                  ],
-                                  center: Alignment(-0.2, -0.2),
+                                  colors: theme.isDarkMode
+                                      ? [Colors.grey.shade700, Colors.grey.shade900]
+                                      : [Colors.yellow.shade300, Colors.orange.shade700],
+                                  center: const Alignment(-0.3, -0.3),
                                   radius: 0.8,
                                 ),
                                 border: Border.all(
-                                  color: circleColor.withOpacity(0.6),
+                                  color: theme.isDarkMode
+                                      ? Colors.grey.shade800
+                                      : Colors.brown.shade700,
                                   width: 4,
                                 ),
                                 boxShadow: [
@@ -379,11 +444,13 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                                       ? const TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
-                                          fontWeight: FontWeight.bold)
+                                          fontWeight: FontWeight.bold,
+                                        )
                                       : const TextStyle(
                                           color: Colors.black,
                                           fontSize: 16,
-                                          fontWeight: FontWeight.bold),
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                 ),
                               ),
                             ),
@@ -391,55 +458,150 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                         );
                       },
                     ),
-                    // Coin animation
-                    Positioned(
-                      top: 0,
-                      child: FadeTransition(
-                        opacity: _coinOpacity,
-                        child: ScaleTransition(
-                          scale: _coinScale,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Image.asset(
-                                'assets/coin_boba.png',
-                                width: 40,
-                                height: 40,
+
+                    // ── Coin bubbles: random dx, float upward ────────
+                    AnimatedBuilder(
+                      animation: _coinAnimController,
+                      builder: (context, _) {
+                        if (_lastCoinCount == 0) return const SizedBox.shrink();
+                        return Transform.translate(
+                          offset: Offset(0, _coinOffset.value),
+                          child: Opacity(
+                            opacity: _coinOpacity.value,
+                            child: Transform.scale(
+                              scale: _coinScale.value,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: List.generate(_lastCoinCount, (i) {
+                                  return AnimatedScale(
+                                    scale: _coinAlive[i] ? 1.0 : 0.0,
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeOut,
+                                    child: Opacity(
+                                      opacity: _coinAlive[i] ? 1.0 : 0.0,
+                                      child: Transform.translate(
+                                        offset: Offset(_coinXOffsets[i], 0),
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _coinAlive[i] = false;
+                                            });
+                                          },
+                                          child: _buildBubble(
+                                            context,
+                                            child: Center(
+                                              child: Image.asset(
+                                                'assets/coin_boba.png',
+                                                width: 36,
+                                                height: 36,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '+${Random().nextInt(3) + 5}',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.isDarkMode
-                                      ? Colors.amberAccent
-                                      : Colors.yellowAccent,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ── Sticker bubble (if awarded): float upward ─────
+                    if (_awardedSticker != null && _stickerAlive)
+                      AnimatedBuilder(
+                        animation: _stickerAnimController,
+                        builder: (context, _) {
+                          return Transform.translate(
+                            offset: Offset(0, _stickerOffset.value),
+                            child: Opacity(
+                              opacity: _stickerOpacity.value,
+                              child: Transform.scale(
+                                scale: _stickerScale.value,
+                                child: AnimatedScale(
+                                  scale: _stickerAlive ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOut,
+                                  child: Opacity(
+                                    opacity: _stickerAlive ? 1.0 : 0.0,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _stickerAlive = false;
+                                        });
+                                      },
+                                      child: _buildBubble(
+                                        context,
+                                        child: Center(
+                                          child: Image.asset(
+                                            'assets/sticker$_awardedSticker.png',
+                                            width: 48,
+                                            height: 48,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                    ),
                   ],
                 ),
               ),
             ),
 
             const SizedBox(height: 16),
-
-            // 4) Instruction / status text
+            // ── 4) Instruction / status text ──────────────────────────
             Text(
               statusText,
               textAlign: TextAlign.center,
-              style: theme.isDarkMode
-                  ? const TextStyle(color: Colors.white70, fontSize: 16)
-                  : TextStyle(color: Colors.grey.shade800, fontSize: 16),
+              style: TextStyle(fontSize: 16, color: statusColor),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Draws a 64×64 “sphere‐like bubble” around [child].
+  Widget _buildBubble(BuildContext context, {required Widget child}) {
+    final theme = Provider.of<ThemeProvider>(context);
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            Colors.white.withOpacity(theme.isDarkMode ? 0.10 : 0.20),
+            Colors.white.withOpacity(theme.isDarkMode ? 0.05 : 0.10),
+          ],
+          center: const Alignment(-0.3, -0.3),
+          radius: 0.8,
+        ),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.5),
+            blurRadius: 2,
+            offset: const Offset(-2, -2),
+          ),
+        ],
+      ),
+      child: ClipOval(child: child),
     );
   }
 }

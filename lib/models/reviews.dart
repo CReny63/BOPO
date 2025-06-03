@@ -314,7 +314,6 @@ class _StoresPageState extends State<StoresPage> {
   }
 }
 
-/// STORE DETAILS SCREEN (unchanged) …
 /// STORE CARD WITH DYNAMIC THEME COLORS:
 class StoreCard extends StatelessWidget {
   final BobaStore store;
