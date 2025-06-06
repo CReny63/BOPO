@@ -85,14 +85,18 @@ class _MyAppState extends State<MyApp> {
             '/friends': (context) => const StorePage(),
             '/splash': (context) => SplashScreen(),
             '/login': (context) => LoginPage(
-                  themeProvider: Provider.of<ThemeProvider>(context, listen: false),
+                  themeProvider:
+                      Provider.of<ThemeProvider>(context, listen: false),
                 ),
             '/review': (context) {
-              final fbAuth.User? user = fbAuth.FirebaseAuth.instance.currentUser;
+              final fbAuth.User? user =
+                  fbAuth.FirebaseAuth.instance.currentUser;
               final String uid = user?.uid ?? '';
               return review.StoresPage(
-                toggleTheme: Provider.of<ThemeProvider>(context, listen: false).toggleTheme,
-                isDarkMode: Provider.of<ThemeProvider>(context, listen: false).isDarkMode,
+                toggleTheme: Provider.of<ThemeProvider>(context, listen: false)
+                    .toggleTheme,
+                isDarkMode: Provider.of<ThemeProvider>(context, listen: false)
+                    .isDarkMode,
                 uid: uid,
               );
             },
@@ -108,7 +112,7 @@ class _MyAppState extends State<MyApp> {
                 toggleTheme: themeProvider.toggleTheme,
                 isDarkMode: themeProvider.isDarkMode,
                 username: '', // Supply actual username as needed.
-                email: '',    // Supply actual email as needed.
+                email: '', // Supply actual email as needed.
               );
             },
           },
@@ -126,10 +130,12 @@ class _MyAppState extends State<MyApp> {
               final uid = settings.arguments as String?;
               if (uid == null || uid.isEmpty) {
                 return MaterialPageRoute(
+                  settings: settings, // ← propagate the name here
                   builder: (_) => LoginPage(themeProvider: themeProvider),
                 );
               }
               return MaterialPageRoute(
+                settings: settings, // ← propagate the name here
                 builder: (_) => HomeWithProgress(
                   uid: uid,
                   isDarkMode: themeProvider.isDarkMode,
@@ -137,6 +143,7 @@ class _MyAppState extends State<MyApp> {
                 ),
               );
             }
+
             return null;
           },
           debugShowCheckedModeBanner: false,

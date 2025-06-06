@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
+import 'package:test/models/bottom_bar.dart';
 import 'package:test/services/theme_provider.dart'; // Your ThemeProvider
 import 'package:test/widgets/app_bar_content.dart';
 
@@ -260,49 +261,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           myLocationEnabled: true,
           myLocationButtonEnabled: true,
         ),
-        bottomNavigationBar: BottomAppBar(
-          color: Theme.of(context).colorScheme.surface,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: <Widget>[
-              IconButton(
-                icon: const Icon(Icons.star_outline, size: 21.0),
-                tooltip: 'Visits',
-                onPressed: () => Navigator.pushNamed(context, '/review'),
-              ),
-              IconButton(
-                icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
-                tooltip: 'Featured',
-                onPressed: () => Navigator.pushNamed(context, '/friends'),
-              ),
-               IconButton(
-              icon: const Icon(Icons.home_outlined, size: 21.0),
-              tooltip: 'Home',
-              onPressed: () {
-                final fbAuth.User? user =
-                    fbAuth.FirebaseAuth.instance.currentUser;
-                if (user != null && user.uid.isNotEmpty) {
-                  Navigator.pushReplacementNamed(context, '/main',
-                      arguments: user.uid);
-                } else {
-                  // If for some reason there is no current user, fallback to login.
-                  Navigator.pushReplacementNamed(context, '/login');
-                }
-              },
-            ),
-              IconButton(
-                icon: const Icon(Icons.map_outlined, size: 21.0),
-                tooltip: 'Map',
-                onPressed: () {}, // Already on this page.
-              ),
-              IconButton(
-                icon: const Icon(Icons.person_outline, size: 21.0),
-                tooltip: 'Profile',
-                onPressed: () => Navigator.pushNamed(context, '/profile'),
-              ),
-            ],
-          ),
-        ),
+        bottomNavigationBar: const CustomBottomAppBar(),
       );
     }
   }

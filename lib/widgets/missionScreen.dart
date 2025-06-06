@@ -1,34 +1,23 @@
 import 'dart:async';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:test/services/theme_provider.dart';
 
-// ─── Helper to parse storeId into brand & location ───────────────────────────────
-Map<String, String> _parseStoreId(String storeId) {
-  final parts = storeId.split('_');
-  final brand = parts.isNotEmpty ? parts[0] : storeId;
-  var location = '';
-  if (parts.length >= 2) {
-    final rawCity = parts[1];
-    final city =
-        rawCity.replaceAllMapped(RegExp(r'(?<!^)([A-Z])'), (m) => ' ${m[0]}');
-    final stateMap = {'SanMarcos': 'CA', 'Oceanside': 'CA', 'Vista': 'CA'};
-    final state = stateMap[rawCity] ?? '';
-    location = '$city, $state';
-  }
-  return {'brand': brand, 'location': location};
-}
-
+/// Represents a single mission.
 class Mission {
   final String title;
   final String description;
   final int goal;
   final int current;
   final int reward;
+  final int id; // Unique mission ID for tracking
 
   const Mission({
+    required this.id,
     required this.title,
     required this.description,
     required this.current,
@@ -37,7 +26,7 @@ class Mission {
   });
 }
 
-// ─── Segmented progress bar that never overflows ────────────────────────────────
+/// A segmented progress bar that never overflows.
 class SegmentedProgressIndicator extends StatelessWidget {
   final int current;
   final int goal;
@@ -58,7 +47,6 @@ class SegmentedProgressIndicator extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Subtract total gap width, then divide equally among all segments:
         final totalSpacing = spacing * (goal - 1);
         final segmentWidth = (constraints.maxWidth - totalSpacing) / goal;
 
@@ -71,8 +59,7 @@ class SegmentedProgressIndicator extends StatelessWidget {
                 width: w,
                 height: 8,
                 decoration: BoxDecoration(
-                  color:
-                      (segmentIndex < current) ? filledColor : emptyColor,
+                  color: (segmentIndex < current) ? filledColor : emptyColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               );
@@ -86,7 +73,7 @@ class SegmentedProgressIndicator extends StatelessWidget {
   }
 }
 
-// ─── A flipping badge that shows store & date ────────────────────────────────────
+/// A flipping badge for historic visits (unchanged from before).
 class BadgeCoin extends StatefulWidget {
   final String storeId;
   final String timestamp;
@@ -134,13 +121,28 @@ class _BadgeCoinState extends State<BadgeCoin>
     if (!_controller.isAnimating) _controller.forward();
   }
 
+  Map<String, String> _parseStoreId(String storeId) {
+    final parts = storeId.split('_');
+    final brand = parts.isNotEmpty ? parts[0] : storeId;
+    var location = '';
+    if (parts.length >= 2) {
+      final rawCity = parts[1];
+      final city =
+          rawCity.replaceAllMapped(RegExp(r'(?<!^)([A-Z])'), (m) => ' ${m[0]}');
+      final stateMap = {'SanMarcos': 'CA', 'Oceanside': 'CA', 'Vista': 'CA'};
+      final state = stateMap[rawCity] ?? '';
+      location = '$city, $state';
+    }
+    return {'brand': brand, 'location': location};
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = widget.size;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final info = _parseStoreId(widget.storeId);
     final date = DateTime.tryParse(widget.timestamp) ?? DateTime.now();
-    final formattedDate = '${date.month}/${date.day}/${date.year}';
+    final formattedDate = DateFormat('MM/dd/yyyy').format(date);
 
     Widget _buildFace(Widget child) {
       return Container(
@@ -226,8 +228,9 @@ class _BadgeCoinState extends State<BadgeCoin>
           final isFront = (_animation.value <= pi / 2) == _showFront;
           return Transform(
             alignment: Alignment.center,
-            transform:
-                Matrix4.identity()..setEntry(3, 2, 0.003)..rotateY(angle),
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.003)
+              ..rotateY(angle),
             child: isFront ? front : back,
           );
         },
@@ -236,7 +239,7 @@ class _BadgeCoinState extends State<BadgeCoin>
   }
 }
 
-// ─── The main Missions screen ───────────────────────────────────────────────────
+/// The main Missions screen.
 class MissionsScreen extends StatefulWidget {
   final String userId;
   final String storeId;
@@ -264,7 +267,7 @@ class MissionsScreen extends StatefulWidget {
 class _MissionsScreenState extends State<MissionsScreen> {
   Timer? _visitTimer;
   bool _visitRegistered = false;
-  final thresholdMeters = 3.05;
+  final double thresholdMeters = 3.05;
   Timer? _locationCheckTimer;
 
   late final DatabaseReference _coinsRef;
@@ -273,9 +276,14 @@ class _MissionsScreenState extends State<MissionsScreen> {
   Set<int> _alreadyRewarded = {};
   bool _rewardsLoaded = false;
 
+  // We need to know how many **unique** stickers of each tier the user has:
+  Set<int> _uniqueStickerIds = {};
+  bool _stickersLoaded = false;
+
   @override
   void initState() {
     super.initState();
+
     _coinsRef = FirebaseDatabase.instance
         .ref()
         .child('users')
@@ -288,24 +296,83 @@ class _MissionsScreenState extends State<MissionsScreen> {
 
     // ─── Load existing mission rewards first ─────────────────────────────
     _rewardsRef.get().then((snap) {
-      if (!mounted) return; // avoid setState if disposed
-      if (snap.exists) {
-        final data = Map<String, dynamic>.from(snap.value as Map);
-        setState(() {
-          _alreadyRewarded = data.keys
-              .map((k) => int.tryParse(k) ?? -1)
-              .where((i) => i >= 0)
-              .toSet();
-          _rewardsLoaded = true;
-        });
-      } else {
-        setState(() {
-          _rewardsLoaded = true;
-        });
+  if (!mounted) return;
+  if (snap.exists) {
+    final raw = snap.value;
+    final Map<String, dynamic> dataMap = {};
+    if (raw is Map) {
+      dataMap.addAll(Map<String, dynamic>.from(raw));
+    } else if (raw is List) {
+      // If snap.value came back as a List<dynamic>, convert it into a Map by index
+      for (int i = 0; i < raw.length; i++) {
+        final element = raw[i];
+        if (element is Map) {
+          dataMap['$i'] = Map<String, dynamic>.from(element);
+        }
       }
+    }
+    setState(() {
+      _alreadyRewarded = dataMap.keys
+          .map((k) => int.tryParse(k) ?? -1)
+          .where((i) => i >= 0)
+          .toSet();
+      _rewardsLoaded = true;
+    });
+  } else {
+    setState(() {
+      _rewardsLoaded = true;
+    });
+  }
+});
+
+
+    // ─── Load all unique sticker IDs for this user ─────────────────────────
+    FirebaseDatabase.instance
+        .ref()
+        .child('users')
+        .child(widget.userId)
+        .child('stickers')
+        .get()
+        .then((snap) {
+      if (!mounted) return;
+      final ids = <int>{};
+      final raw = snap.value;
+
+      if (raw is Map) {
+        // Typical “Map<String, dynamic>” case:
+        final dataMap = Map<String, dynamic>.from(raw);
+        for (var entry in dataMap.values) {
+          if (entry is Map) {
+            final asset = entry['asset'] as String?;
+            if (asset != null) {
+              final m = RegExp(r'sticker(\d+)\.png').firstMatch(asset);
+              if (m != null) {
+                ids.add(int.parse(m.group(1)!));
+              }
+            }
+          }
+        }
+      } else if (raw is List) {
+        // When Firebase returned a List<dynamic> instead of a Map:
+        for (var element in raw) {
+          if (element is Map) {
+            final asset = element['asset'] as String?;
+            if (asset != null) {
+              final m = RegExp(r'sticker(\d+)\.png').firstMatch(asset);
+              if (m != null) {
+                ids.add(int.parse(m.group(1)!));
+              }
+            }
+          }
+        }
+      }
+      setState(() {
+        _uniqueStickerIds = ids;
+        _stickersLoaded = true;
+      });
     });
 
-    // Start periodic location checks
+    // ─── Start periodic location checks ─────────────────────────────
     _locationCheckTimer = Timer.periodic(
       const Duration(seconds: 5),
       (_) => _checkLocation(),
@@ -319,7 +386,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
     super.dispose();
   }
 
-  void _checkLocation() async {
+  Future<void> _checkLocation() async {
     Position pos;
     try {
       pos = await Geolocator.getCurrentPosition(
@@ -385,44 +452,163 @@ class _MissionsScreenState extends State<MissionsScreen> {
     }
   }
 
-  List<Mission> buildMissions(int uniqueCount) {
-    final goals = [3, 5, 10, 15, 20];
-    var active = goals.indexWhere((g) => uniqueCount < g);
-    if (active == -1) active = goals.length;
-    return List.generate(goals.length, (i) {
-      final prev = i == 0 ? 0 : goals[i - 1];
-      final curr = i < active
-          ? goals[i]
-          : (i == active ? max(0, uniqueCount - prev) : 0);
-      return Mission(
-        title: 'Visit ${goals[i]} Boba Stores',
-        description:
-            'Visit ${goals[i]} different boba stores to unlock your reward!',
-        current: curr,
-        goal: goals[i],
+  /// Builds a combined mission list (visits + sticker collections).
+  List<Mission> buildAllMissions(int uniqueStoreVisits) {
+    // 1) “Visit X Boba Stores” missions (same as before):
+    final visitGoals = [3, 5, 10, 15, 20];
+    final List<Mission> visitMissions = [];
+    for (var i = 0; i < visitGoals.length; i++) {
+      final goal = visitGoals[i];
+      final current =
+          min(uniqueStoreVisits, goal); // cap at goal for progress bar
+      visitMissions.add(Mission(
+        id: i, // 0..4
+        title: 'Visit $goal Boba Stores',
+        description: 'Visit $goal different boba stores to unlock reward.',
+        current: current,
+        goal: goal,
         reward: 5 * (i + 1),
-      );
-    });
-  }
+      ));
+    }
 
-  bool isMissionActive(int idx, int uniqueCount) {
-    final goals = [3, 5, 10, 15, 20];
-    var active = goals.indexWhere((g) => uniqueCount < g);
-    if (active == -1) active = goals.length;
-    return idx == active;
-  }
+    // 2) Sticker‐collection missions:
+    //    bronze IDs: 1–24, silver: 25–35, gold: 36–50.
+    final bronzeIds =
+        _uniqueStickerIds.where((id) => id >= 1 && id <= 24).toSet();
+    final silverIds =
+        _uniqueStickerIds.where((id) => id >= 25 && id <= 35).toSet();
+    final goldIds =
+        _uniqueStickerIds.where((id) => id >= 36 && id <= 50).toSet();
 
-  void _showInfo(String title, String msg) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(msg),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
-        ],
+    final bronzeCount = bronzeIds.length;
+    final silverCount = silverIds.length;
+    final goldCount = goldIds.length;
+
+    final List<Mission> stickerMissions = [
+      // Bronze:
+      Mission(
+        id: 100,
+        title: 'Collect 5 Bronze Stickers',
+        description: 'Collect 5 distinct bronze‐tier stickers (IDs 1–24).',
+        current: min(bronzeCount, 5),
+        goal: 5,
+        reward: 5,
       ),
-    );
+      Mission(
+        id: 101,
+        title: 'Collect 10 Bronze Stickers',
+        description: 'Collect 10 distinct bronze‐tier stickers (IDs 1–24).',
+        current: min(bronzeCount, 10),
+        goal: 10,
+        reward: 10,
+      ),
+      Mission(
+        id: 102,
+        title: 'Complete Bronze Collection',
+        description:
+            'Collect all 24 bronze‐tier stickers (IDs 1–24) to fully complete.',
+        current: bronzeCount,
+        goal: 24,
+        reward: 20,
+      ),
+
+      // Silver:
+      Mission(
+        id: 200,
+        title: 'Collect 5 Silver Stickers',
+        description: 'Collect 5 distinct silver‐tier stickers (IDs 25–35).',
+        current: min(silverCount, 5),
+        goal: 5,
+        reward: 10,
+      ),
+      Mission(
+        id: 201,
+        title: 'Collect 10 Silver Stickers',
+        description: 'Collect 10 distinct silver‐tier stickers (IDs 25–35).',
+        current: min(silverCount, 10),
+        goal: 10,
+        reward: 15,
+      ),
+      Mission(
+        id: 202,
+        title: 'Complete Silver Collection',
+        description:
+            'Collect all 11 silver‐tier stickers (IDs 25–35) to fully complete.',
+        current: silverCount,
+        goal: 11,
+        reward: 30,
+      ),
+
+      // Gold:
+      Mission(
+        id: 300,
+        title: 'Collect 5 Gold Stickers',
+        description: 'Collect 5 distinct gold‐tier stickers (IDs 36–50).',
+        current: min(goldCount, 5),
+        goal: 5,
+        reward: 20,
+      ),
+      Mission(
+        id: 301,
+        title: 'Collect 10 Gold Stickers',
+        description: 'Collect 10 distinct gold‐tier stickers (IDs 36–50).',
+        current: min(goldCount, 10),
+        goal: 10,
+        reward: 30,
+      ),
+      Mission(
+        id: 302,
+        title: 'Complete Gold Collection',
+        description:
+            'Collect all 15 gold‐tier stickers (IDs 36–50) to fully complete.',
+        current: goldCount,
+        goal: 15,
+        reward: 50,
+      ),
+    ];
+
+    // Combine visits + all sticker missions:
+    return [...visitMissions, ...stickerMissions];
+  }
+
+  /// Returns true if the mission at index [idx] is the “active next” mission.
+  /// We treat “active” as the first mission (in list order) that is not yet fully completed.
+  bool isMissionActive(int idx, List<Mission> allMissions) {
+    // Find first incomplete mission:
+    final firstIncompleteIndex =
+        allMissions.indexWhere((m) => m.current < m.goal);
+    if (firstIncompleteIndex == -1) return false; // all done
+    return idx == firstIncompleteIndex;
+  }
+
+  /// Only show up to 4 missions: any that are “completed” or the next “active” mission.
+  List<Mission> filterVisibleMissions(List<Mission> allMissions) {
+    final visible = <Mission>[];
+
+    // 1) Include all already‐completed missions (so user sees their checks) → up to 4
+    for (var m in allMissions) {
+      if (m.current >= m.goal && visible.length < 4) {
+        visible.add(m);
+      }
+    }
+
+    // 2) If fewer than 4, add the next “active” mission
+    if (visible.length < 4) {
+      final firstIncompleteIndex =
+          allMissions.indexWhere((m) => m.current < m.goal);
+      if (firstIncompleteIndex != -1) {
+        visible.add(allMissions[firstIncompleteIndex]);
+      }
+    }
+
+    // 3) If still fewer than 4, fill up with subsequent incomplete missions
+    var idx = allMissions.indexWhere((m) => m.current < m.goal) + 1;
+    while (visible.length < 4 && idx < allMissions.length) {
+      visible.add(allMissions[idx]);
+      idx++;
+    }
+
+    return visible;
   }
 
   @override
@@ -443,117 +629,132 @@ class _MissionsScreenState extends State<MissionsScreen> {
         title: const Text('Missions'),
         centerTitle: true,
       ),
-      body: StreamBuilder<DatabaseEvent>(
-        stream: uniqueRef.onValue,
-        builder: (ctx, uniqueSnap) {
-          int uniqueCount = 0;
-          var uniqueMap = <dynamic, dynamic>{};
-          if (uniqueSnap.hasData && uniqueSnap.data!.snapshot.value != null) {
-            uniqueMap = uniqueSnap.data!.snapshot.value as Map;
-            uniqueCount = uniqueMap.keys.length;
-          }
-          final missions = buildMissions(uniqueCount);
-
-          return StreamBuilder<DatabaseEvent>(
-            stream: totalRef.onValue,
-            builder: (ctx2, totalSnap) {
-              int totalVisits = 0;
-              if (totalSnap.hasData && totalSnap.data!.snapshot.value != null) {
-                final totalMap = totalSnap.data!.snapshot.value as Map;
-                totalMap.forEach((_, val) {
-                  totalVisits += (val as int);
-                });
-              }
-
-              // Only check rewards once we've loaded existing rewards:
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (_rewardsLoaded) {
-                  _checkAndAwardRewards(missions);
+      body: (_rewardsLoaded && _stickersLoaded)
+          ? StreamBuilder<DatabaseEvent>(
+              stream: uniqueRef.onValue,
+              builder: (ctx, uniqueSnap) {
+                int uniqueCount = 0;
+                if (uniqueSnap.hasData &&
+                    uniqueSnap.data!.snapshot.value != null) {
+                  final uniqueMap =
+                      uniqueSnap.data!.snapshot.value as Map<dynamic, dynamic>;
+                  uniqueCount = uniqueMap.keys.length;
                 }
-              });
+                // Build the full mission list:
+                final allMissions = buildAllMissions(uniqueCount);
+                // Determine which are visible:
+                final visibleMissions = filterVisibleMissions(allMissions);
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Visits: $totalVisits',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w300,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Badges',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w200,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GridView.count(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: uniqueMap.keys.map((sid) {
-                        final ts = uniqueMap[sid]['timestamp'] as String? ?? '';
-                        return LayoutBuilder(
-                          builder: (context, constraints) {
-                            final badgeSize = min(constraints.maxWidth, 70.0);
-                            return BadgeCoin(
-                              storeId: sid,
-                              timestamp: ts,
-                              size: badgeSize,
-                            );
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Missions',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w300,
-                            color: isDark ? Colors.white : Colors.black,
+                return StreamBuilder<DatabaseEvent>(
+                  stream: totalRef.onValue,
+                  builder: (ctx2, totalSnap) {
+                    // We don’t actually need total visits here; we already used uniqueCount.
+                    // But keep this builder so we trigger checks & rewards.
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (_rewardsLoaded) {
+                        _checkAndAwardRewards(allMissions);
+                      }
+                    });
+
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Unique Visits: $uniqueCount',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w300,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.help_outline,
-                              color: isDark ? Colors.white70 : Colors.black54),
-                          onPressed: () => _showInfo(
-                              'Missions', 'Complete missions to earn coins.'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: missions.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (ctx, idx) {
-                        final m = missions[idx];
-                        final active = isMissionActive(idx, uniqueCount);
-                        return _buildMissionRow(m, active);
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Badges',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w200,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Show all earned “visit” badges:
+                          StreamBuilder<DatabaseEvent>(
+                            stream: uniqueRef.onValue,
+                            builder: (ctx3, badgeSnap) {
+                              final badges = <Widget>[];
+                              if (badgeSnap.hasData &&
+                                  badgeSnap.data!.snapshot.value != null) {
+                                final uniqueMap = badgeSnap.data!.snapshot.value
+                                    as Map<dynamic, dynamic>;
+                                uniqueMap.forEach((sid, data) {
+                                  final ts =
+                                      (data as Map)['timestamp'] as String? ??
+                                          '';
+                                  badges.add(BadgeCoin(
+                                    storeId: sid.toString(),
+                                    timestamp: ts,
+                                    size: 60,
+                                  ));
+                                });
+                              }
+                              return GridView.count(
+                                crossAxisCount: 4,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                children: badges,
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Missions',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w300,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.help_outline,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54),
+                                onPressed: () => _showInfo('Missions',
+                                    'Complete the tasks below to earn coins.\nOnly up to four appear at once.'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: visibleMissions.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (ctx, idx) {
+                              final m = visibleMissions[idx];
+                              final indexInAll = buildAllMissions(uniqueCount)
+                                  .indexWhere((x) => x.id == m.id);
+                              final active = isMissionActive(
+                                  indexInAll, buildAllMissions(uniqueCount));
+                              return _buildMissionRow(m, active);
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            )
+          : const Center(child: CircularProgressIndicator()),
     );
   }
 
@@ -564,8 +765,10 @@ class _MissionsScreenState extends State<MissionsScreen> {
         ? (isDark ? Colors.white : Colors.black)
         : (isDark ? Colors.grey : Colors.grey.shade600);
 
-    final lockIcon = Icon(Icons.lock, size: 40, color: isDark ? Colors.black : Colors.grey);
-    final checkIcon = Icon(Icons.check, size: 40, color: isDark ? Colors.blueAccent : Colors.green);
+    final lockIcon = Icon(Icons.lock,
+        size: 40, color: isDark ? Colors.black54 : Colors.grey.shade400);
+    final checkIcon = Icon(Icons.check,
+        size: 40, color: isDark ? Colors.blueAccent : Colors.green);
 
     Widget row = Card(
       color: cardColor,
@@ -593,7 +796,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Image.asset('assets/coin_boba.png', width: 16, height: 16),
+                      Image.asset('assets/coin_boba.png',
+                          width: 16, height: 16),
                       const SizedBox(width: 4),
                       Text(
                         '+${m.reward}',
@@ -677,25 +881,44 @@ class _MissionsScreenState extends State<MissionsScreen> {
         ],
       );
     } else {
-      row = InkWell(onTap: () => _showInfo(m.title, m.description), child: row);
+      row = InkWell(
+        onTap: () => _showInfo(m.title, m.description),
+        child: row,
+      );
     }
 
     return row;
   }
 
-  Future<void> _checkAndAwardRewards(List<Mission> missions) async {
-    for (var i = 0; i < missions.length; i++) {
-      final m = missions[i];
-      if (m.current >= m.goal && !_alreadyRewarded.contains(i)) {
+  void _showInfo(String title, String msg) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(msg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          )
+        ],
+      ),
+    );
+  }
+
+  /// Award rewards for any newly‐completed missions.
+  Future<void> _checkAndAwardRewards(List<Mission> allMissions) async {
+    for (var m in allMissions) {
+      if (m.current >= m.goal && !_alreadyRewarded.contains(m.id)) {
         final reward = m.reward;
         final coinSnap = await _coinsRef.get();
         final currentCoins = (coinSnap.value as int?) ?? 0;
         await _coinsRef.set(currentCoins + reward);
-        await _rewardsRef.child(i.toString()).set({
+        await _rewardsRef.child(m.id.toString()).set({
           'reward': reward,
           'timestamp': DateTime.now().toIso8601String(),
         });
-        _alreadyRewarded.add(i);
+        _alreadyRewarded.add(m.id);
       }
     }
   }

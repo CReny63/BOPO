@@ -76,8 +76,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
     super.initState();
     _currentPosition = widget.userPosition;
 
-    _coinsRef =
-        FirebaseDatabase.instance.ref('users/${widget.userId}/coins');
+    _coinsRef = FirebaseDatabase.instance.ref('users/${widget.userId}/coins');
     _userVisitRef = FirebaseDatabase.instance
         .ref('userVisits/${widget.userId}/${widget.store.id}');
     _stickersRef =
@@ -95,16 +94,13 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
       duration: const Duration(milliseconds: 4000),
     );
     _coinScale = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-          parent: _coinAnimController, curve: Curves.elasticOut),
+      CurvedAnimation(parent: _coinAnimController, curve: Curves.elasticOut),
     );
     _coinOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-          parent: _coinAnimController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _coinAnimController, curve: Curves.easeInOut),
     );
     _coinOffset = Tween<double>(begin: 0.0, end: -150.0).animate(
-      CurvedAnimation(
-          parent: _coinAnimController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _coinAnimController, curve: Curves.easeInOut),
     );
 
     // 3) Sticker bubble controller (4s total)
@@ -113,16 +109,13 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
       duration: const Duration(milliseconds: 4000),
     );
     _stickerScale = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-          parent: _stickerAnimController, curve: Curves.elasticOut),
+      CurvedAnimation(parent: _stickerAnimController, curve: Curves.elasticOut),
     );
     _stickerOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-          parent: _stickerAnimController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _stickerAnimController, curve: Curves.easeInOut),
     );
     _stickerOffset = Tween<double>(begin: 0.0, end: -150.0).animate(
-      CurvedAnimation(
-          parent: _stickerAnimController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _stickerAnimController, curve: Curves.easeInOut),
     );
 
     _startProximityMonitoring();
@@ -360,8 +353,7 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                       ),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: Icon(Icons.launch,
-                            size: 20, color: Colors.blue),
+                        child: Icon(Icons.launch, size: 20, color: Colors.blue),
                       ),
                     ],
                   ),
@@ -390,9 +382,8 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                     AnimatedBuilder(
                       animation: _spinController,
                       builder: (context, _) {
-                        final angle = _isSpinning
-                            ? _spinController.value * 2 * pi
-                            : 0.0;
+                        final angle =
+                            _isSpinning ? _spinController.value * 2 * pi : 0.0;
                         final matrix = Matrix4.identity()
                           ..setEntry(3, 2, 0.005)
                           ..rotateY(angle);
@@ -408,8 +399,14 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
                                 shape: BoxShape.circle,
                                 gradient: RadialGradient(
                                   colors: theme.isDarkMode
-                                      ? [Colors.grey.shade700, Colors.grey.shade900]
-                                      : [Colors.yellow.shade300, Colors.orange.shade700],
+                                      ? [
+                                          Colors.grey.shade700,
+                                          Colors.grey.shade900
+                                        ]
+                                      : [
+                                          Colors.yellow.shade300,
+                                          Colors.orange.shade700
+                                        ],
                                   center: const Alignment(-0.3, -0.3),
                                   radius: 0.8,
                                 ),

@@ -1,23 +1,28 @@
+// lib/screens/home_with_progress.dart
+
 import 'dart:async';
 import 'dart:math';
+
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+
 import 'package:test/locations/boba_store.dart';
 import 'package:test/locations/fetch_stores.dart';
 import 'package:test/locations/geolocator.dart';
 import 'package:test/locations/nearby_stores.dart';
+import 'package:test/models/bottom_bar.dart';
 import 'package:test/models/store_details.dart';
-import 'package:test/services/theme_provider.dart';  // Your ThemeProvider
+import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/Greeting.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:test/widgets/MissionScreen.dart';
 import 'package:test/widgets/promo.dart';
 import 'package:test/widgets/social_media.dart';
-//import 'package:cached_network_image/cached_network_image.dart';
+//import 'package:test/widgets/custom_bottom_app_bar.dart'; // ← Import the shared BottomAppBar
 
 class HomeWithProgress extends StatefulWidget {
   final bool isDarkMode;
@@ -28,7 +33,7 @@ class HomeWithProgress extends StatefulWidget {
     super.key,
     required this.isDarkMode,
     required this.toggleTheme,
-      required this.uid,
+    required this.uid,
   });
 
   @override
@@ -53,7 +58,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   void initState() {
     super.initState();
     _sortStoresByDistance();
-    _positionStream = Geolocator.getPositionStream().listen((position) {
+    _positionStream =
+        Geolocator.getPositionStream().listen((position) {
       _lastKnownPosition = position;
       _sortStoresByDistanceWithPosition(position);
     });
@@ -69,7 +75,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
   Future<void> _fetchStores() async {
     try {
       if (_lastKnownPosition != null) {
-        List<BobaStore> fetchedStores = await _storeService.fetchNearbyStores(
+        List<BobaStore> fetchedStores =
+            await _storeService.fetchNearbyStores(
           latitude: _lastKnownPosition!.latitude,
           longitude: _lastKnownPosition!.longitude,
           radiusInMeters: 5000,
@@ -187,6 +194,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
             ),
           ),
           body: const Center(child: CircularProgressIndicator()),
+          // Use the shared CustomBottomAppBar even during loading state:
+          bottomNavigationBar: const CustomBottomAppBar(),
         ),
       );
     }
@@ -206,7 +215,8 @@ class HomeWithProgressState extends State<HomeWithProgress> {
         ),
         body: CustomRefreshIndicator(
           onRefresh: _handleRefresh,
-          builder: (BuildContext context, Widget child, IndicatorController controller) {
+          builder:
+              (BuildContext context, Widget child, IndicatorController controller) {
             return Stack(
               alignment: Alignment.topCenter,
               children: [
@@ -257,14 +267,14 @@ class HomeWithProgressState extends State<HomeWithProgress> {
                     child: NearbyStoresWidget(
                       stores: sortedStores,
                       userPosition: _lastKnownPosition!,
-                      userLocationText: city, 
+                      userLocationText: city,
                       uid: widget.uid,
                     ),
                   ),
                   const SizedBox(height: 120),
                   const PromoBanner(),
                   const SizedBox(height: 30),
-                  const SocialMediaLinks(), //carousal messges? talking abt circle of stores
+                  const SocialMediaLinks(),
                   const SizedBox(height: 30),
                 ],
               ),
@@ -272,80 +282,37 @@ class HomeWithProgressState extends State<HomeWithProgress> {
           ),
         ),
         floatingActionButton: FloatingActionButton(
-  onPressed: () {
-    if (selectedStore != null) {
-      // Obtain the themeProvider from the context.
-      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-      Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => MissionsScreen(
-      userId: widget.uid, // Use the real uid from HomeWithProgress
-      storeId: "Oceanside_store1", // Example store id
-      storeLatitude: 33.15965,
-      storeLongitude: -117.2048917,
-      storeCity: "Oceanside",
-      scannedStoreIds: <String>{},
-      themeProvider: themeProvider,
-    ),
-  ),
+          onPressed: () {
+            if (selectedStore != null) {
+              final themeProvider =
+                  Provider.of<ThemeProvider>(context, listen: false);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MissionsScreen(
+                    userId: widget.uid,
+                    storeId: "Oceanside_store1", // example
+                    storeLatitude: 33.15965,
+                    storeLongitude: -117.2048917,
+                    storeCity: "Oceanside",
+                    scannedStoreIds: <String>{},
+                    themeProvider: themeProvider,
+                  ),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No store selected.')),
+              );
+            }
+          },
+          backgroundColor:
+              Theme.of(context).floatingActionButtonTheme.backgroundColor,
+          child: const Icon(Icons.assignment),
+        ),
 
-);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No store selected.')),
-      );
-    }
-  },
-  backgroundColor: Theme.of(context).floatingActionButtonTheme.backgroundColor,
-  child: const Icon(Icons.assignment),
-),
-
-        bottomNavigationBar: buildBottomNavBar(context),
-      ),
-    );
-  }
-
-  Widget buildBottomNavBar(BuildContext context) {
-    return BottomAppBar(
-      color: Theme.of(context).colorScheme.surface,
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 6.0,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.star_outline, size: 21.0),
-            onPressed: () {
-              Navigator.pushNamed(context, '/review');
-            },
-            tooltip: 'Visits',
-          ),
-          IconButton(
-            icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21.0),
-            onPressed: () => Navigator.pushNamed(context, '/friends'),
-            tooltip: 'Featured',
-          ),
-          IconButton(
-            icon: const Icon(Icons.home_outlined, size: 21.0),
-            onPressed: () {},
-            tooltip: 'Home',
-          ),
-          IconButton(
-            icon: const Icon(Icons.map_outlined, size: 21.0),
-            onPressed: () {
-              Navigator.pushNamed(context, '/notifications');
-            },
-            tooltip: 'Map',
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline, size: 21.0),
-            onPressed: () {
-              Navigator.pushNamed(context, '/profile');
-            },
-            tooltip: 'Profile',
-          ),
-        ],
+        // ← Here is the important line: use your shared widget
+        bottomNavigationBar: const CustomBottomAppBar(),
       ),
     );
   }

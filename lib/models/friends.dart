@@ -1,3 +1,5 @@
+// lib/widgets/store_page.dart
+
 import 'dart:async';
 import 'dart:math';
 
@@ -5,10 +7,13 @@ import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:test/models/bottom_bar.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
+import 'package:intl/intl.dart';
 
-/// Mystery box model
+
+/// ─── MYSTERY BOX MODEL ─────────────────────────────────────────────────────────
 class _MysteryBox {
   final String title;
   final int cost;
@@ -18,21 +23,29 @@ class _MysteryBox {
   const _MysteryBox(this.title, this.cost, this.color, this.asset);
 }
 
-/// Splash shown after opening a box
+/// ─── REWARD SPLASH PAGE ────────────────────────────────────────────────────────
+/// Now respects light/dark mode, and only shows “New Sticker Unlocked!”
+/// if [isNewSticker] is true.
 class RewardSplashPage extends StatelessWidget {
   final int reward;
   final String stickerAsset;
+  final bool isNewSticker;
 
   const RewardSplashPage({
     Key? key,
     required this.reward,
     required this.stickerAsset,
+    required this.isNewSticker,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final theme = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = theme.isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Adapt background to theme
+      backgroundColor: isDark ? Colors.black : Colors.white,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -41,20 +54,33 @@ class RewardSplashPage extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               '+$reward coins!',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
+                color: isDark ? Colors.amberAccent : Colors.orangeAccent,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'New Sticker Unlocked!',
-              style: TextStyle(fontSize: 18),
-            ),
+            if (isNewSticker)
+              Text(
+                'New Sticker Unlocked!',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
             const SizedBox(height: 30),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? Colors.purpleAccent : Colors.orange,
+              ),
               onPressed: () => Navigator.pop(context),
-              child: const Text('Continue'),
+              child: Text(
+                'Continue',
+                style: TextStyle(
+                  color: isDark ? Colors.black : Colors.white,
+                ),
+              ),
             ),
           ],
         ),
@@ -63,7 +89,7 @@ class RewardSplashPage extends StatelessWidget {
   }
 }
 
-/// Confirmation page before opening a box
+/// ─── BOX DETAIL PAGE ───────────────────────────────────────────────────────────
 class BoxDetailPage extends StatelessWidget {
   final _MysteryBox box;
   final VoidCallback onConfirm;
@@ -76,6 +102,8 @@ class BoxDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Box color header stays same; but the rest of the page will adapt automatically
+    // because it uses the default background/text colors.
     return Scaffold(
       appBar: AppBar(title: Text(box.title), backgroundColor: box.color),
       body: Center(
@@ -87,7 +115,10 @@ class BoxDetailPage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('${box.cost}'),
+                Text(
+                  '${box.cost}',
+                  style: const TextStyle(fontSize: 20),
+                ),
                 const SizedBox(width: 4),
                 Image.asset('assets/coin_boba.png', width: 20, height: 20),
               ],
@@ -103,7 +134,10 @@ class BoxDetailPage extends StatelessWidget {
                 onConfirm();
                 Navigator.pop(context);
               },
-              child: const Text('Open Box'),
+              child: const Text(
+                'Open Box',
+                style: TextStyle(fontSize: 16),
+              ),
             ),
           ],
         ),
@@ -112,7 +146,7 @@ class BoxDetailPage extends StatelessWidget {
   }
 }
 
-/// Store page with tabs: Collection, Shop, History
+/// ─── STORE PAGE WITH TABS (Collection, Shop, History) ──────────────────────────
 class StorePage extends StatefulWidget {
   const StorePage({Key? key}) : super(key: key);
 
@@ -123,15 +157,18 @@ class StorePage extends StatefulWidget {
 class _StorePageState extends State<StorePage> {
   late DatabaseReference _userRef;
   late StreamSubscription<DatabaseEvent> _coinSub;
+  
 
   String _uid = '';
   int _coins = 0;
   Map<int, int> _stickerCounts = {};
   List<MapEntry<String, Map<String, dynamic>>> _history = [];
 
-  // Number of each sticker to sell (0…count)
+  // How many of each sticker the user wants to sell (0…available)
   Map<int, int> _sellSelections = {};
   bool _isProcessingSell = false;
+
+  bool _allSelected = false;
 
   final List<_MysteryBox> _boxes = const [
     _MysteryBox('Bronze Box', 5, Colors.brown, 'assets/bronze_box.png'),
@@ -163,7 +200,7 @@ class _StorePageState extends State<StorePage> {
       }
     });
 
-    // Load stickers
+    // Load existing stickers
     final stickerSnap = await _userRef.child('stickers').get();
     final counts = <int, int>{};
     if (stickerSnap.exists) {
@@ -192,9 +229,8 @@ class _StorePageState extends State<StorePage> {
     setState(() {
       _stickerCounts = counts;
       _history = histList;
-      _sellSelections = {
-        for (var slot in counts.keys) slot: 0,
-      };
+      _sellSelections = {for (var slot in counts.keys) slot: 0};
+      _allSelected = false;
     });
   }
 
@@ -204,6 +240,7 @@ class _StorePageState extends State<StorePage> {
     super.dispose();
   }
 
+  /// Opens a mystery box, awards coins + possibly a sticker.
   Future<void> _openBox(_MysteryBox box) async {
     if (_coins < box.cost) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -211,10 +248,11 @@ class _StorePageState extends State<StorePage> {
       );
       return;
     }
-    final reward = Random().nextInt(1) + 3;
-    await _userRef.child('coins').set(_coins - box.cost + reward);
 
-    // Determine sticker ID range based on box:
+    final rewardCoins = Random().nextInt(3) + 3; // 3..5 coins
+    await _userRef.child('coins').set(_coins - box.cost + rewardCoins);
+
+    // Determine sticker ID pool:
     List<int> pool;
     if (box.title == 'Bronze Box') {
       pool = List.generate(24, (i) => i + 1); // 1–24
@@ -224,7 +262,7 @@ class _StorePageState extends State<StorePage> {
       pool = List.generate(15, (i) => i + 36); // 36–50
     }
 
-    // Build a weight map: higher IDs = rarer.
+    // Weight map (higher IDs rarer)
     final maxId = pool.reduce(max);
     final weights = {for (var id in pool) id: (maxId + 1) - id};
     final totalWeight = weights.values.reduce((a, b) => a + b);
@@ -238,32 +276,57 @@ class _StorePageState extends State<StorePage> {
       }
     }
 
-    final sticker = 'assets/sticker$chosenId.png';
-    await _userRef.child('stickers').push().set({'asset': sticker});
+    // Check if user already has that sticker:
+    final alreadyHas =
+        (_stickerCounts.containsKey(chosenId) && _stickerCounts[chosenId]! > 0);
+    final stickerAsset = 'assets/sticker$chosenId.png';
 
+    // If user does NOT already have it, add to their “stickers” node
+    if (!alreadyHas) {
+      await _userRef.child('stickers').push().set({'asset': stickerAsset});
+    }
+
+    // Add to history
     await _userRef.child('history').push().set({
-      'description': 'Opened ${box.title}: +$reward coins',
+      'description': 'Opened ${box.title}: +$rewardCoins coins',
       'timestamp': DateTime.now().toIso8601String(),
       'boxAsset': box.asset,
+      'stickerId': chosenId,
     });
 
+    // Show the splash. Pass isNewSticker = !alreadyHas
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            RewardSplashPage(reward: reward, stickerAsset: sticker),
+        builder: (_) => RewardSplashPage(
+          reward: rewardCoins,
+          stickerAsset: stickerAsset,
+          isNewSticker: !alreadyHas,
+        ),
       ),
     ).then((_) => _initUser());
   }
 
-  Future<void> _selectAllStickers() async {
-    setState(() {
-      _sellSelections = {
-        for (var slot in _stickerCounts.keys) slot: _stickerCounts[slot]!,
-      };
-    });
+  /// Toggles “Select All” ↔ “Deselect All” for the Sell‐Stickers list.
+  void _toggleSelectAll() {
+    if (_allSelected) {
+      // Deselect all
+      setState(() {
+        _sellSelections = {for (var slot in _stickerCounts.keys) slot: 0};
+        _allSelected = false;
+      });
+    } else {
+      // Select all at maximum possible
+      setState(() {
+        _sellSelections = {
+          for (var slot in _stickerCounts.keys) slot: _stickerCounts[slot]!
+        };
+        _allSelected = true;
+      });
+    }
   }
 
+  /// Sells whichever stickers have a positive selected quantity.
   Future<void> _sellSelected() async {
     if (_isProcessingSell) return;
     final toSell = <int, int>{};
@@ -274,7 +337,11 @@ class _StorePageState extends State<StorePage> {
         final available = _stickerCounts[slot] ?? 0;
         final sellCount = qty.clamp(0, available);
         if (sellCount > 0) {
-          final rate = slot <= 20 ? 1 : slot <= 39 ? 2 : 5;
+          final rate = slot <= 20
+              ? 1
+              : slot <= 39
+                  ? 2
+                  : 5;
           totalEarned += rate * sellCount;
           toSell[slot] = sellCount;
         }
@@ -287,19 +354,17 @@ class _StorePageState extends State<StorePage> {
 
     await _userRef.child('coins').set(_coins + totalEarned);
 
-    // Remove sold stickers
+    // Remove sold stickers from DB
     final stickersRef = _userRef.child('stickers');
     final snap = await stickersRef.get();
     if (snap.exists) {
       final data = Map<String, dynamic>.from(snap.value as Map);
       final toRemoveMap = Map<int, int>.from(toSell);
       for (var key in data.keys) {
-        final m = RegExp(r'sticker(\d+)\.png')
-            .firstMatch(data[key]['asset']);
+        final m = RegExp(r'sticker(\d+)\.png').firstMatch(data[key]['asset']);
         if (m != null) {
           final slot = int.parse(m.group(1)!);
-          if (toRemoveMap.containsKey(slot) &&
-              toRemoveMap[slot]! > 0) {
+          if (toRemoveMap.containsKey(slot) && toRemoveMap[slot]! > 0) {
             await stickersRef.child(key).remove();
             toRemoveMap[slot] = toRemoveMap[slot]! - 1;
             if (toRemoveMap[slot] == 0) {
@@ -316,9 +381,8 @@ class _StorePageState extends State<StorePage> {
     );
 
     setState(() {
-      _sellSelections = {
-        for (var slot in _stickerCounts.keys) slot: 0
-      };
+      _sellSelections = {for (var slot in _stickerCounts.keys) slot: 0};
+      _allSelected = false;
       _isProcessingSell = false;
     });
 
@@ -328,6 +392,7 @@ class _StorePageState extends State<StorePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context);
+    final isDark = theme.isDarkMode;
 
     return DefaultTabController(
       length: 3,
@@ -336,16 +401,15 @@ class _StorePageState extends State<StorePage> {
           preferredSize: const Size.fromHeight(75),
           child: AppBarContent(
             toggleTheme: theme.toggleTheme,
-            isDarkMode: theme.isDarkMode,
+            isDarkMode: isDark,
           ),
         ),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Column(
           children: [
             TabBar(
-              indicatorColor:
-                  theme.isDarkMode ? Colors.amber : Colors.orange,
-              labelColor: theme.isDarkMode ? Colors.white : Colors.black,
+              indicatorColor: isDark ? Colors.amber : Colors.orange,
+              labelColor: isDark ? Colors.white : Colors.black,
               tabs: const [
                 Tab(text: 'Collection'),
                 Tab(text: 'Shop'),
@@ -355,7 +419,7 @@ class _StorePageState extends State<StorePage> {
             Expanded(
               child: TabBarView(
                 children: [
-                  // Collection Tab
+                  // ── COLLECTION TAB ───────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.all(12),
                     child: GridView.builder(
@@ -378,12 +442,11 @@ class _StorePageState extends State<StorePage> {
                               ),
                               child: Center(
                                 child: count > 0
-                                    ? Image.asset(
-                                        'assets/sticker$slot.png')
+                                    ? Image.asset('assets/sticker$slot.png')
                                     : Text(
                                         '$slot',
-                                        style: const TextStyle(
-                                            color: Colors.grey),
+                                        style:
+                                            const TextStyle(color: Colors.grey),
                                       ),
                               ),
                             ),
@@ -412,16 +475,15 @@ class _StorePageState extends State<StorePage> {
                     ),
                   ),
 
-                  // Shop Tab
+                  // ── SHOP TAB ──────────────────────────────────────────────
                   SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Coin Balance
+                        // Coin Balance Row
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Row(
                             children: [
                               Image.asset('assets/coin_boba.png',
@@ -432,9 +494,7 @@ class _StorePageState extends State<StorePage> {
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: theme.isDarkMode
-                                      ? Colors.white
-                                      : Colors.black,
+                                  color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
                             ],
@@ -442,12 +502,11 @@ class _StorePageState extends State<StorePage> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Mystery Boxes
+                        // Mystery Boxes Carousel
                         SizedBox(
                           height: 300,
                           child: PageView.builder(
-                            controller:
-                                PageController(viewportFraction: 0.6),
+                            controller: PageController(viewportFraction: 0.6),
                             itemCount: _boxes.length,
                             itemBuilder: (context, idx) {
                               final box = _boxes[idx];
@@ -469,8 +528,7 @@ class _StorePageState extends State<StorePage> {
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                           color: box.color, width: 4),
-                                      borderRadius:
-                                          BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Column(
                                       mainAxisAlignment:
@@ -499,10 +557,8 @@ class _StorePageState extends State<StorePage> {
                                                   .titleMedium,
                                             ),
                                             const SizedBox(width: 4),
-                                            Image.asset(
-                                                'assets/coin_boba.png',
-                                                width: 25,
-                                                height: 25),
+                                            Image.asset('assets/coin_boba.png',
+                                                width: 25, height: 25),
                                           ],
                                         ),
                                       ],
@@ -515,40 +571,40 @@ class _StorePageState extends State<StorePage> {
                         ),
 
                         const SizedBox(height: 24),
-                        // Sell Stickers Section
+                        // Sell Stickers Section Header + Select/Deselect All
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Sell Stickers for Coins',
-                                style:
-                                    Theme.of(context).textTheme.titleMedium,
+                                style: Theme.of(context).textTheme.titleMedium,
                               ),
                               TextButton(
-                                onPressed: _selectAllStickers,
-                                child: const Text('Select All'),
+                                onPressed: _toggleSelectAll,
+                                child: Text(_allSelected
+                                    ? 'Deselect All'
+                                    : 'Select All'),
                               ),
                             ],
                           ),
                         ),
+
+                        // List of stickers with +/- controls
                         ListView.builder(
                           shrinkWrap: true,
-                          physics:
-                              const NeverScrollableScrollPhysics(),
+                          physics: const NeverScrollableScrollPhysics(),
                           itemCount: _stickerCounts.length,
                           itemBuilder: (context, idx) {
-                            final slot =
-                                _stickerCounts.keys.elementAt(idx);
-                            final quantity =
-                                _stickerCounts[slot]!;
-                            final rate =
-                                slot <= 20 ? 1 : slot <= 39 ? 2 : 5;
-                            final selectedCount =
-                                _sellSelections[slot] ?? 0;
+                            final slot = _stickerCounts.keys.elementAt(idx);
+                            final quantity = _stickerCounts[slot]!;
+                            final rate = slot <= 20
+                                ? 1
+                                : slot <= 39
+                                    ? 2
+                                    : 5;
+                            final selectedCount = _sellSelections[slot] ?? 0;
 
                             return ListTile(
                               leading: Image.asset(
@@ -558,10 +614,9 @@ class _StorePageState extends State<StorePage> {
                               ),
                               title: Row(
                                 children: [
-                                  // Keeps “You have x$quantity” from overflowing
                                   Expanded(
                                     child: Text(
-                                      'You have x$quantity',
+                                      '${quantity}x',
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
                                     ),
@@ -570,7 +625,6 @@ class _StorePageState extends State<StorePage> {
                               ),
                               subtitle: Row(
                                 children: [
-                                  // Wrap each text in Flexible so they can shrink
                                   Flexible(
                                     child: Text(
                                       'Sell',
@@ -579,10 +633,8 @@ class _StorePageState extends State<StorePage> {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  Image.asset(
-                                      'assets/coin_boba.png',
-                                      width: 16,
-                                      height: 16),
+                                  Image.asset('assets/coin_boba.png',
+                                      width: 16, height: 16),
                                   const SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
@@ -603,6 +655,7 @@ class _StorePageState extends State<StorePage> {
                                             setState(() {
                                               _sellSelections[slot] =
                                                   selectedCount - 1;
+                                              _allSelected = false;
                                             });
                                           }
                                         : null,
@@ -615,6 +668,19 @@ class _StorePageState extends State<StorePage> {
                                             setState(() {
                                               _sellSelections[slot] =
                                                   selectedCount + 1;
+                                              if (_sellSelections[slot] ==
+                                                  quantity) {
+                                                // If all have been individually selected,
+                                                // and every slot matches its max, flip _allSelected:
+                                                final allMatch = _stickerCounts
+                                                    .keys
+                                                    .every((s) =>
+                                                        _sellSelections[s] ==
+                                                        _stickerCounts[s]);
+                                                _allSelected = allMatch;
+                                              } else {
+                                                _allSelected = false;
+                                              }
                                             });
                                           }
                                         : null,
@@ -624,12 +690,13 @@ class _StorePageState extends State<StorePage> {
                             );
                           },
                         ),
+
+                        // “Convert Selected to Coins” button
                         Padding(
                           padding: const EdgeInsets.all(16),
                           child: ElevatedButton(
                             onPressed: (_isProcessingSell ||
-                                    !_sellSelections.values
-                                        .any((v) => v > 0))
+                                    !_sellSelections.values.any((v) => v > 0))
                                 ? null
                                 : _sellSelected,
                             child: _isProcessingSell
@@ -639,107 +706,77 @@ class _StorePageState extends State<StorePage> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2),
                                   )
-                                : const Text(
-                                    'Convert Selected to Coins'),
+                                : const Text('Convert Selected to Coins'),
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  // History Tab
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: ListView.separated(
-                      itemCount: _history.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(),
-                      itemBuilder: (context, idx) {
-                        final item = _history[idx].value;
-                        final asset =
-                            item['boxAsset'] as String?;
-                        final ts = item['timestamp']
-                            as String?;
-                        final time = ts != null
-                            ? DateTime.parse(ts)
-                                .toLocal()
-                                .toString()
-                                .split('.')[0]
-                            : '';
-                        final desc =
-                            item['description']
-                                as String? ??
-                                '';
-                        return ListTile(
-                          leading: asset != null
-                              ? Image.asset(asset,
-                                  width: 32, height: 32)
-                              : const SizedBox(
-                                  width: 32, height: 32),
-                          title: Text(time),
-                          subtitle: Text(desc),
-                        );
-                      },
-                    ),
-                  ),
+                  // ── HISTORY TAB ────────────────────────────────────────────
+                Padding(
+                  
+  padding: const EdgeInsets.all(12),
+  child: ListView.separated(
+    itemCount: _history.length,
+    separatorBuilder: (_, __) => const Divider(),
+    itemBuilder: (context, idx) {
+      final item = _history[idx].value;
+      final asset = item['boxAsset'] as String?;
+      final ts = item['timestamp'] as String?;
+      String dateStr = '';
+      String timeStr = '';
+      Widget rewardWidget = const SizedBox();
+
+      if (ts != null) {
+        final dt = DateTime.parse(ts).toLocal();
+        dateStr = DateFormat('MM/dd/yyyy').format(dt);
+        timeStr = DateFormat('h:mm a').format(dt);
+      }
+
+      // If your stored “description” always looks like “Opened <Box>: +<n> coins”,
+      // extract the “+n” part and show the coin image instead of the word “coins”.
+      final desc = item['description'] as String? ?? '';
+      final coinMatch = RegExp(r'\+(\d+)').firstMatch(desc);
+      if (coinMatch != null) {
+        // e.g. "+5"
+        final amount = coinMatch.group(0); // including the plus sign
+        rewardWidget = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              amount!,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 4),
+            Image.asset('assets/coin_boba.png', width: 16, height: 16),
+          ],
+        );
+      } else {
+        // fallback: just show the raw description
+        rewardWidget = Text(desc);
+      }
+
+      return ListTile(
+        leading: asset != null
+          ? Image.asset(asset, width: 32, height: 32)
+          : const SizedBox(width: 32, height: 32),
+        title: Text('$dateStr  $timeStr'),
+        subtitle: rewardWidget,
+      );
+    },
+  ),
+),
                 ],
               ),
             ),
           ],
         ),
-        bottomNavigationBar: BottomAppBar(
-          color: Theme.of(context).colorScheme.surface,
-          child: Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                icon:
-                    const Icon(Icons.star_outline, size: 21),
-                tooltip: 'Visits',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/review'),
-              ),
-              IconButton(
-                icon: const Icon(
-                    Icons.emoji_food_beverage_outlined,
-                    size: 21),
-                tooltip: 'Featured',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/featured'),
-              ),
-              IconButton(
-                icon:
-                    const Icon(Icons.home_outlined, size: 21),
-                tooltip: 'Home',
-                onPressed: () {
-                  if (_uid.isNotEmpty) {
-                    Navigator.pushReplacementNamed(
-                        context, '/main',
-                        arguments: _uid);
-                  } else {
-                    Navigator.pushReplacementNamed(
-                        context, '/login');
-                  }
-                },
-              ),
-              IconButton(
-                icon:
-                    const Icon(Icons.map_outlined, size: 21),
-                tooltip: 'Map',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/notifications'),
-              ),
-              IconButton(
-                icon:
-                    const Icon(Icons.person_outline, size: 21),
-                tooltip: 'Profile',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/profile'),
-              ),
-            ],
-          ),
-        ),
+
+        /// ─── REUSABLE BOTTOM BAR ─────────────────────────────────────────────────
+        bottomNavigationBar: const CustomBottomAppBar(
+            //activeTab: BottomTab.shop, // highlight “Shop”
+            ),
       ),
     );
   }

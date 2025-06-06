@@ -6,6 +6,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
+import 'package:test/models/bottom_bar.dart';
 import 'package:test/models/store_details.dart';
 import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
@@ -376,52 +377,7 @@ class ProfilePage extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: BottomAppBar(
-        color: Theme.of(context).colorScheme.surface,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.star_outline, size: 21),
-              tooltip: 'Visits',
-              onPressed: () => Navigator.pushNamed(context, '/review'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.emoji_food_beverage_outlined, size: 21),
-              tooltip: 'Featured',
-              onPressed: () => Navigator.pushNamed(context, '/friends'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.home_outlined, size: 21),
-              tooltip: 'Home',
-              onPressed: () {
-                final user = fbAuth.FirebaseAuth.instance.currentUser;
-                if (user != null && user.uid.isNotEmpty) {
-                  Navigator.pushReplacementNamed(
-                    context,
-                    '/main',
-                    arguments: user.uid,
-                  );
-                } else {
-                  Navigator.pushReplacementNamed(context, '/login');
-                }
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.map_outlined, size: 21),
-              tooltip: 'Map',
-              onPressed: () => Navigator.pushNamed(context, '/notifications'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.person_outline, size: 21),
-              tooltip: 'Profile',
-              onPressed: () {
-                // Already on profile page
-              },
-            ),
-          ],
-        ),
-      ),
+     bottomNavigationBar: const CustomBottomAppBar(),
     );
   }
 }
