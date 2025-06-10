@@ -21,10 +21,9 @@ class CircularLayout extends StatelessWidget {
     required this.userPosition,
     required this.maxDistanceThreshold,
     required this.userLocationText,
-    required this.uid, // This must be provided when constructing CircularLayout.
+    required this.uid,
   }) : super(key: key);
 
-  // Helper method to sort stores by distance and return the closest 8.
   List<BobaStore> _getSortedStores() {
     List<BobaStore> sortedList = List<BobaStore>.from(bobaStores);
     sortedList.sort((a, b) {
@@ -47,7 +46,6 @@ class CircularLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Obtain themeProvider from context.
     final themeProvider = Provider.of<ThemeProvider>(context);
     final List<BobaStore> displayStores = _getSortedStores();
     final int itemCount = displayStores.length;
@@ -59,13 +57,11 @@ class CircularLayout extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Display the user's location (city and state) at the center.
           Text(
             userLocationText,
             style: themeProvider.currentTheme.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
-          // Position each store around the circle.
           for (int i = 0; i < itemCount; i++)
             _buildPositionedStore(context, i, angleIncrement, displayStores),
         ],
@@ -73,99 +69,108 @@ class CircularLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildPositionedStore(BuildContext context, int index,
-      double angleIncrement, List<BobaStore> displayStores) {
+  Widget _buildPositionedStore(
+      BuildContext context,
+      int index,
+      double angleIncrement,
+      List<BobaStore> displayStores,
+  ) {
     final double orbitRadius = radius * 1.2;
     final double angle = angleIncrement * index - pi / 2;
     final double x = orbitRadius * cos(angle);
     final double y = orbitRadius * sin(angle);
 
-    BobaStore store = displayStores[index];
-    double distance = Geolocator.distanceBetween(
+    final store = displayStores[index];
+    final distance = Geolocator.distanceBetween(
       userPosition.latitude,
       userPosition.longitude,
       store.latitude,
       store.longitude,
     );
-    bool withinReach = distance <= maxDistanceThreshold;
-
-    // Compute the image path with fallback.
-    String imagePath = store.imageName.isNotEmpty
-        ? 'assets/${store.imageName}.png'
-        : 'assets/default_image.png';
-
-    // Access the theme provider.
+    final withinReach = distance <= maxDistanceThreshold;
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     return Transform.translate(
       offset: Offset(x, y),
       child: Semantics(
-        // Providing a semantic label for accessibility.
         label:
             '${store.name} store, ${withinReach ? "within reach" : "not within reach"}',
         button: true,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(30),
-            onTap: () {
-              // Since this is a StatelessWidget,
-              // refer to the uid property directly (not widget.uid)
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => StoreDetailsScreen(
-                    store: store,
-                    userPosition: userPosition,
-                    userId: uid,  // Use the UID passed into CircularLayout
+        child: SizedBox(
+          width: 60,
+          height: 60,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StoreDetailsScreen(
+                      store: store,
+                      userPosition: userPosition,
+                      userId: uid,
+                    ),
                   ),
-                ),
-              );
-            },
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              builder: (context, scale, child) {
-                return Transform.scale(
-                  scale: scale,
-                  child: child,
                 );
               },
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // The circular container with border and image.
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: themeProvider.isDarkMode
-                            ? Colors.white70
-                            : Colors.black54,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        imagePath,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.center,
-                      ),
-                    ),
-                  ),
-                  if (!withinReach)
+              customBorder: const CircleBorder(),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+                builder: (ctx, scale, child) => Transform.scale(
+                  scale: scale,
+                  child: child,
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // boba-ball image
                     Container(
                       width: 60,
                       height: 60,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey.withOpacity(0.5),
+                      decoration: const BoxDecoration(shape: BoxShape.circle),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/boba_ball.png',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
-                ],
+
+                    // store name label
+                    Center(
+                      child: Text(
+                        store.name,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black38,
+                              offset: Offset(1, 1),
+                              blurRadius: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // grey overlay if out-of-reach
+                    if (!withinReach)
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey.withOpacity(0.5),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

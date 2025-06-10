@@ -12,7 +12,6 @@ import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
 import 'package:intl/intl.dart';
 
-
 /// ─── MYSTERY BOX MODEL ─────────────────────────────────────────────────────────
 class _MysteryBox {
   final String title;
@@ -157,7 +156,6 @@ class StorePage extends StatefulWidget {
 class _StorePageState extends State<StorePage> {
   late DatabaseReference _userRef;
   late StreamSubscription<DatabaseEvent> _coinSub;
-  
 
   String _uid = '';
   int _coins = 0;
@@ -281,10 +279,8 @@ class _StorePageState extends State<StorePage> {
         (_stickerCounts.containsKey(chosenId) && _stickerCounts[chosenId]! > 0);
     final stickerAsset = 'assets/sticker$chosenId.png';
 
-    // If user does NOT already have it, add to their “stickers” node
-    if (!alreadyHas) {
-      await _userRef.child('stickers').push().set({'asset': stickerAsset});
-    }
+    // Always record the sticker (duplicates included)
+    await _userRef.child('stickers').push().set({'asset': stickerAsset});
 
     // Add to history
     await _userRef.child('history').push().set({
@@ -455,9 +451,11 @@ class _StorePageState extends State<StorePage> {
                                 top: 2,
                                 right: 2,
                                 child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
+                                  width: 15, // fixed diameter
+                                  height: 15,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.purple : Colors.orange,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Text(
@@ -714,59 +712,61 @@ class _StorePageState extends State<StorePage> {
                   ),
 
                   // ── HISTORY TAB ────────────────────────────────────────────
-                Padding(
-                  
-  padding: const EdgeInsets.all(12),
-  child: ListView.separated(
-    itemCount: _history.length,
-    separatorBuilder: (_, __) => const Divider(),
-    itemBuilder: (context, idx) {
-      final item = _history[idx].value;
-      final asset = item['boxAsset'] as String?;
-      final ts = item['timestamp'] as String?;
-      String dateStr = '';
-      String timeStr = '';
-      Widget rewardWidget = const SizedBox();
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: ListView.separated(
+                      itemCount: _history.length,
+                      separatorBuilder: (_, __) => const Divider(),
+                      itemBuilder: (context, idx) {
+                        final item = _history[idx].value;
+                        final asset = item['boxAsset'] as String?;
+                        final ts = item['timestamp'] as String?;
+                        String dateStr = '';
+                        String timeStr = '';
+                        Widget rewardWidget = const SizedBox();
 
-      if (ts != null) {
-        final dt = DateTime.parse(ts).toLocal();
-        dateStr = DateFormat('MM/dd/yyyy').format(dt);
-        timeStr = DateFormat('h:mm a').format(dt);
-      }
+                        if (ts != null) {
+                          final dt = DateTime.parse(ts).toLocal();
+                          dateStr = DateFormat('MM/dd/yyyy').format(dt);
+                          timeStr = DateFormat('h:mm a').format(dt);
+                        }
 
-      // If your stored “description” always looks like “Opened <Box>: +<n> coins”,
-      // extract the “+n” part and show the coin image instead of the word “coins”.
-      final desc = item['description'] as String? ?? '';
-      final coinMatch = RegExp(r'\+(\d+)').firstMatch(desc);
-      if (coinMatch != null) {
-        // e.g. "+5"
-        final amount = coinMatch.group(0); // including the plus sign
-        rewardWidget = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              amount!,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 4),
-            Image.asset('assets/coin_boba.png', width: 16, height: 16),
-          ],
-        );
-      } else {
-        // fallback: just show the raw description
-        rewardWidget = Text(desc);
-      }
+                        // If your stored “description” always looks like “Opened <Box>: +<n> coins”,
+                        // extract the “+n” part and show the coin image instead of the word “coins”.
+                        final desc = item['description'] as String? ?? '';
+                        final coinMatch = RegExp(r'\+(\d+)').firstMatch(desc);
+                        if (coinMatch != null) {
+                          // e.g. "+5"
+                          final amount =
+                              coinMatch.group(0); // including the plus sign
+                          rewardWidget = Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                amount!,
+                                style: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 4),
+                              Image.asset('assets/coin_boba.png',
+                                  width: 16, height: 16),
+                            ],
+                          );
+                        } else {
+                          // fallback: just show the raw description
+                          rewardWidget = Text(desc);
+                        }
 
-      return ListTile(
-        leading: asset != null
-          ? Image.asset(asset, width: 32, height: 32)
-          : const SizedBox(width: 32, height: 32),
-        title: Text('$dateStr  $timeStr'),
-        subtitle: rewardWidget,
-      );
-    },
-  ),
-),
+                        return ListTile(
+                          leading: asset != null
+                              ? Image.asset(asset, width: 32, height: 32)
+                              : const SizedBox(width: 32, height: 32),
+                          title: Text('$dateStr  $timeStr'),
+                          subtitle: rewardWidget,
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
