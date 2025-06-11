@@ -192,6 +192,7 @@ class _StorePageState extends State<StorePage> {
       await _userRef.child('coins').set(20);
     }
     _coinSub = _userRef.child('coins').onValue.listen((event) {
+      if (!mounted) return;
       final val = event.snapshot.value;
       if (val is int) {
         setState(() => _coins = val);

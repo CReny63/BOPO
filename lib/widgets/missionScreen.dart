@@ -274,10 +274,10 @@ class MissionsScreen extends StatefulWidget {
 }
 
 class _MissionsScreenState extends State<MissionsScreen> {
-  Timer? _visitTimer;
-  bool _visitRegistered = false;
-  final double thresholdMeters = 3.05;
-  Timer? _locationCheckTimer;
+  // Timer? _visitTimer;
+  // bool _visitRegistered = false;
+  // final double thresholdMeters = 3.05;
+  // Timer? _locationCheckTimer;
 
   late final DatabaseReference _coinsRef;
   late final DatabaseReference _rewardsRef;
@@ -381,226 +381,157 @@ class _MissionsScreenState extends State<MissionsScreen> {
     });
 
     // ─── Start periodic location checks ─────────────────────────────
-    _locationCheckTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _checkLocation(),
-    );
+   // _locationCheckTimer = Timer.periodic(
+    //  const Duration(seconds: 5),
+     // (_) => _checkLocation(),
+  //  );
   }
 
   @override
   void dispose() {
-    _visitTimer?.cancel();
-    _locationCheckTimer?.cancel();
+   // _visitTimer?.cancel();
+   // _locationCheckTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _checkLocation() async {
-    Position pos;
-    try {
-      pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-    } catch (_) {
-      return;
-    }
-    final dist = Geolocator.distanceBetween(
-      pos.latitude,
-      pos.longitude,
-      widget.storeLatitude,
-      widget.storeLongitude,
-    );
+  // Future<void> _checkLocation() async {
+  //   Position pos;
+  //   try {
+  //     pos = await Geolocator.getCurrentPosition(
+  //         desiredAccuracy: LocationAccuracy.high);
+  //   } catch (_) {
+  //     return;
+  //   }
+  //   final dist = Geolocator.distanceBetween(
+  //     pos.latitude,
+  //     pos.longitude,
+  //     widget.storeLatitude,
+  //     widget.storeLongitude,
+  //   );
 
-    if (dist <= thresholdMeters && !_visitRegistered) {
-      _visitTimer ??= Timer(const Duration(seconds: 30), () async {
-        final updated = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
-        final updatedDist = Geolocator.distanceBetween(
-          updated.latitude,
-          updated.longitude,
-          widget.storeLatitude,
-          widget.storeLongitude,
-        );
-        if (updatedDist <= thresholdMeters) {
-          await _registerVisit(updated);
-          setState(() => _visitRegistered = true);
-        }
-        _visitTimer = null;
-      });
-    } else {
-      _visitTimer?.cancel();
-      _visitTimer = null;
-    }
+  //   if (dist <= thresholdMeters && !_visitRegistered) {
+  //     _visitTimer ??= Timer(const Duration(seconds: 30), () async {
+  //       final updated = await Geolocator.getCurrentPosition(
+  //           desiredAccuracy: LocationAccuracy.high);
+  //       final updatedDist = Geolocator.distanceBetween(
+  //         updated.latitude,
+  //         updated.longitude,
+  //         widget.storeLatitude,
+  //         widget.storeLongitude,
+  //       );
+  //       if (updatedDist <= thresholdMeters) {
+  //         await _registerVisit(updated);
+  //         setState(() => _visitRegistered = true);
+  //       }
+  //       _visitTimer = null;
+  //     });
+  //   } else {
+  //     _visitTimer?.cancel();
+  //     _visitTimer = null;
+  //   }
+  // }
+
+  // Future<void> _registerVisit(Position pos) async {
+  //   final visitsRef = FirebaseDatabase.instance
+  //       .ref()
+  //       .child('userVisits')
+  //       .child(widget.userId)
+  //       .child(widget.storeId);
+  //   final snap = await visitsRef.get();
+  //   if (!snap.exists) {
+  //     await visitsRef.set({
+  //       'timestamp': DateTime.now().toIso8601String(),
+  //       'latitude': pos.latitude,
+  //       'longitude': pos.longitude,
+  //     });
+  //     final storeRef = FirebaseDatabase.instance
+  //         .ref()
+  //         .child('stores')
+  //         .child(widget.storeCity)
+  //         .child(widget.storeId);
+  //     await storeRef.runTransaction((data) {
+  //       if (data != null) {
+  //         final map = Map<String, dynamic>.from(data as Map);
+  //         map['visits'] = (map['visits'] ?? 0) + 1;
+  //         return Transaction.success(map);
+  //       }
+  //       return Transaction.success(data);
+  //     });
+  //   }
+  // }
+/// Builds a combined mission list (visits + sticker collections).
+List<Mission> buildAllMissions(int uniqueStoreVisits) {
+  // 1) “Visit X Boba Stores” missions
+  final visitGoals = [3, 5, 10, 15, 20];
+  final List<Mission> visitMissions = [];
+  for (var i = 0; i < visitGoals.length; i++) {
+    final goal = visitGoals[i];
+    final current = min(uniqueStoreVisits, goal);
+    visitMissions.add(Mission(
+      id: i,                   // 0 → Visit 3, 1 → Visit 5, 2 → Visit 10, …
+      title: 'Visit $goal Boba Stores',
+      description: 'Visit $goal different boba stores to unlock reward.',
+      current: current,
+      goal: goal,
+      reward: 5 * (i + 1),
+    ));
   }
 
-  Future<void> _registerVisit(Position pos) async {
-    final visitsRef = FirebaseDatabase.instance
-        .ref()
-        .child('userVisits')
-        .child(widget.userId)
-        .child(widget.storeId);
-    final snap = await visitsRef.get();
-    if (!snap.exists) {
-      await visitsRef.set({
-        'timestamp': DateTime.now().toIso8601String(),
-        'latitude': pos.latitude,
-        'longitude': pos.longitude,
-      });
-      final storeRef = FirebaseDatabase.instance
-          .ref()
-          .child('stores')
-          .child(widget.storeCity)
-          .child(widget.storeId);
-      await storeRef.runTransaction((data) {
-        if (data != null) {
-          final map = Map<String, dynamic>.from(data as Map);
-          map['visits'] = (map['visits'] ?? 0) + 1;
-          return Transaction.success(map);
-        }
-        return Transaction.success(data);
-      });
-    }
-  }
+  // 2) Sticker‐collection missions
+  final bronzeCount = _uniqueStickerIds.where((id) => id <= 24).length;
+  final silverCount = _uniqueStickerIds.where((id) => id <= 35 && id >= 25).length;
+  final goldCount   = _uniqueStickerIds.where((id) => id >= 36).length;
 
-  /// Builds a combined mission list (visits + sticker collections).
-  List<Mission> buildAllMissions(int uniqueStoreVisits) {
-    // 1) “Visit X Boba Stores” missions (same as before):
-    final visitGoals = [3, 5, 10, 15, 20];
-    final List<Mission> visitMissions = [];
-    for (var i = 0; i < visitGoals.length; i++) {
-      final goal = visitGoals[i];
-      final current =
-          min(uniqueStoreVisits, goal); // cap at goal for progress bar
-      visitMissions.add(Mission(
-        id: i, // 0..4
-        title: 'Visit $goal Boba Stores',
-        description: 'Visit $goal different boba stores to unlock reward.',
-        current: current,
-        goal: goal,
-        reward: 5 * (i + 1),
-      ));
-    }
+  final List<Mission> stickerMissions = [
+    Mission(id: 100, title: 'Collect 5 Bronze Stickers',   /*…*/ current: min(bronzeCount, 5),  goal:5,  reward:5, description: 'Collect 5 unique Bronze-tier stickers!'),
+    Mission(id: 101, title: 'Collect 10 Bronze Stickers',  /*…*/ current: min(bronzeCount, 10), goal:10, reward:10, description: 'Collect 10 unique Bronze-tier stickers!'),
+    Mission(id: 102, title: 'Complete Bronze Collection',  /*…*/ current: bronzeCount,         goal:24, reward:20, description: 'Collect All Bronze-tier stickers!'),
 
-    // 2) Sticker‐collection missions:
-    //    bronze IDs: 1–24, silver: 25–35, gold: 36–50.
-    final bronzeIds =
-        _uniqueStickerIds.where((id) => id >= 1 && id <= 24).toSet();
-    final silverIds =
-        _uniqueStickerIds.where((id) => id >= 25 && id <= 35).toSet();
-    final goldIds =
-        _uniqueStickerIds.where((id) => id >= 36 && id <= 50).toSet();
+    Mission(id: 200, title: 'Collect 5 Silver Stickers',   /*…*/ current: min(silverCount, 5),  goal:5,  reward:10, description: 'Collect 5 unique Silver-tier stickers!'),
+    Mission(id: 201, title: 'Collect 10 Silver Stickers',  /*…*/ current: min(silverCount, 10), goal:10, reward:15, description: 'Collect 10 unique Silver-tier stickers!'),
+    Mission(id: 202, title: 'Complete Silver Collection',  /*…*/ current: silverCount,         goal:11, reward:30, description: 'Collect All Silver-tier stickers!'),
 
-    final bronzeCount = bronzeIds.length;
-    final silverCount = silverIds.length;
-    final goldCount = goldIds.length;
+    Mission(id: 300, title: 'Collect 5 Gold Stickers',     /*…*/ current: min(goldCount, 5),    goal:5,  reward:20, description: 'Collect 5 unique Gold-tier stickers!'),
+    Mission(id: 301, title: 'Collect 10 Gold Stickers',    /*…*/ current: min(goldCount, 10),   goal:10, reward:30, description: 'Collect 10 unique Gold-tier stickers!'),
+    Mission(id: 302, title: 'Complete Gold Collection',    /*…*/ current: goldCount,           goal:15, reward:50, description: 'Collect All Gold-tier stickers!'),
+  ];
 
-    final List<Mission> stickerMissions = [
-      // Bronze:
-      Mission(
-        id: 100,
-        title: 'Collect 5 Bronze Stickers',
-        description: 'Collect 5 distinct bronze‐tier stickers (IDs 1–24).',
-        current: min(bronzeCount, 5),
-        goal: 5,
-        reward: 5,
-      ),
-      Mission(
-        id: 101,
-        title: 'Collect 10 Bronze Stickers',
-        description: 'Collect 10 distinct bronze‐tier stickers (IDs 1–24).',
-        current: min(bronzeCount, 10),
-        goal: 10,
-        reward: 10,
-      ),
-      Mission(
-        id: 102,
-        title: 'Complete Bronze Collection',
-        description:
-            'Collect all 24 bronze‐tier stickers (IDs 1–24) to fully complete.',
-        current: bronzeCount,
-        goal: 24,
-        reward: 20,
-      ),
+  return [...visitMissions, ...stickerMissions];
+}
 
-      // Silver:
-      Mission(
-        id: 200,
-        title: 'Collect 5 Silver Stickers',
-        description: 'Collect 5 distinct silver‐tier stickers (IDs 25–35).',
-        current: min(silverCount, 5),
-        goal: 5,
-        reward: 10,
-      ),
-      Mission(
-        id: 201,
-        title: 'Collect 10 Silver Stickers',
-        description: 'Collect 10 distinct silver‐tier stickers (IDs 25–35).',
-        current: min(silverCount, 10),
-        goal: 10,
-        reward: 15,
-      ),
-      Mission(
-        id: 202,
-        title: 'Complete Silver Collection',
-        description:
-            'Collect all 11 silver‐tier stickers (IDs 25–35) to fully complete.',
-        current: silverCount,
-        goal: 11,
-        reward: 30,
-      ),
+/// A custom ordering of mission IDs.
+static const List<int> _customOrder = [
+  1,   // Visit 5 stores
+  100, // Collect 5 Bronze
+  2,   // Visit 10 stores
+  101, // Collect 10 Bronze
+  3,   // Visit 15 stores
+  102, // Complete Bronze
+  // …add any others you like…
+];
 
-      // Gold:
-      Mission(
-        id: 300,
-        title: 'Collect 5 Gold Stickers',
-        description: 'Collect 5 distinct gold‐tier stickers (IDs 36–50).',
-        current: min(goldCount, 5),
-        goal: 5,
-        reward: 20,
-      ),
-      Mission(
-        id: 301,
-        title: 'Collect 10 Gold Stickers',
-        description: 'Collect 10 distinct gold‐tier stickers (IDs 36–50).',
-        current: min(goldCount, 10),
-        goal: 10,
-        reward: 30,
-      ),
-      Mission(
-        id: 302,
-        title: 'Complete Gold Collection',
-        description:
-            'Collect all 15 gold‐tier stickers (IDs 36–50) to fully complete.',
-        current: goldCount,
-        goal: 15,
-        reward: 50,
-      ),
-    ];
+/// Only show up to 4 next‐incomplete missions, in the custom interleaved order.
+List<Mission> filterVisibleMissions(List<Mission> allMissions) {
+  // 1) Filter incomplete
+  final incomplete = allMissions.where((m) => m.current < m.goal).toList();
 
-    // Combine visits + all sticker missions:
-    return [...visitMissions, ...stickerMissions];
-  }
+  // 2) Sort by custom order (unknown IDs sink to the end)
+  incomplete.sort((a, b) {
+    final ia = _customOrder.indexOf(a.id).clamp(0, _customOrder.length);
+    final ib = _customOrder.indexOf(b.id).clamp(0, _customOrder.length);
+    return ia.compareTo(ib);
+  });
 
-  /// Returns true if the mission at index [idx] is the “active next” mission.
-  /// We treat “active” as the first mission (in list order) that is not yet fully completed.
-  /// Returns true if the mission at index [idx] is the next active mission.
-  bool isMissionActive(int idx, List<Mission> allMissions) {
-    final firstIncomplete = allMissions.indexWhere((m) => m.current < m.goal);
-    return idx == firstIncomplete;
-  }
+  // 3) Take first four
+  return incomplete.take(4).toList();
+}
 
-  /// Only show up to 4 next incomplete missions, with the first incomplete as active.
-  /// Only show up to 4 next‐incomplete missions, with the first incomplete (active) always first.
-  List<Mission> filterVisibleMissions(List<Mission> allMissions) {
-    // grab only incomplete missions, in original order
-    final incomplete = allMissions.where((m) => m.current < m.goal).toList();
-    if (incomplete.isEmpty) return [];
+/// (Optional) If you still need “active” highlighting:
+bool isMissionActive(int idx, List<Mission> visibleMissions) {
+  // active = first in the visible list
+  return idx == 0;
+}
 
-    // first one is the “active” mission
-    final active = incomplete.first;
-    // then fill with up to 3 more
-    final nextOnes = incomplete.skip(1).take(3);
-
-    return [active, ...nextOnes];
-  }
 
   @override
   Widget build(BuildContext context) {

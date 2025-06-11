@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -12,7 +13,7 @@ class CircularLayout extends StatelessWidget {
   final Position userPosition;
   final double maxDistanceThreshold;
   final String userLocationText; // e.g. "San Marcos, CA"
-  final String uid; // Add the UID property
+  final String uid;
 
   const CircularLayout({
     Key? key,
@@ -25,31 +26,31 @@ class CircularLayout extends StatelessWidget {
   }) : super(key: key);
 
   List<BobaStore> _getSortedStores() {
-    List<BobaStore> sortedList = List<BobaStore>.from(bobaStores);
-    sortedList.sort((a, b) {
-      double distanceA = Geolocator.distanceBetween(
+    final sorted = List<BobaStore>.from(bobaStores);
+    sorted.sort((a, b) {
+      final da = Geolocator.distanceBetween(
         userPosition.latitude,
         userPosition.longitude,
         a.latitude,
         a.longitude,
       );
-      double distanceB = Geolocator.distanceBetween(
+      final db = Geolocator.distanceBetween(
         userPosition.latitude,
         userPosition.longitude,
         b.latitude,
         b.longitude,
       );
-      return distanceA.compareTo(distanceB);
+      return da.compareTo(db);
     });
-    return sortedList.sublist(0, min(8, sortedList.length));
+    return sorted.sublist(0, min(8, sorted.length));
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final List<BobaStore> displayStores = _getSortedStores();
-    final int itemCount = displayStores.length;
-    final double angleIncrement = 2 * pi / itemCount;
+    final stores = _getSortedStores();
+    final count = stores.length;
+    final angleStep = 2 * pi / count;
 
     return SizedBox(
       width: radius * 3,
@@ -57,30 +58,31 @@ class CircularLayout extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // User location at center
           Text(
             userLocationText,
             style: themeProvider.currentTheme.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
-          for (int i = 0; i < itemCount; i++)
-            _buildPositionedStore(context, i, angleIncrement, displayStores),
+          for (int i = 0; i < count; i++)
+            _buildPositionedStore(context, i, angleStep, stores),
         ],
       ),
     );
   }
 
   Widget _buildPositionedStore(
-      BuildContext context,
-      int index,
-      double angleIncrement,
-      List<BobaStore> displayStores,
+    BuildContext context,
+    int index,
+    double angleIncrement,
+    List<BobaStore> stores,
   ) {
-    final double orbitRadius = radius * 1.2;
-    final double angle = angleIncrement * index - pi / 2;
-    final double x = orbitRadius * cos(angle);
-    final double y = orbitRadius * sin(angle);
+    final orbit = radius * 1.2;
+    final angle = angleIncrement * index - pi / 2;
+    final dx = orbit * cos(angle);
+    final dy = orbit * sin(angle);
 
-    final store = displayStores[index];
+    final store = stores[index];
     final distance = Geolocator.distanceBetween(
       userPosition.latitude,
       userPosition.longitude,
@@ -88,10 +90,12 @@ class CircularLayout extends StatelessWidget {
       store.longitude,
     );
     final withinReach = distance <= maxDistanceThreshold;
+
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
 
     return Transform.translate(
-      offset: Offset(x, y),
+      offset: Offset(dx, dy),
       child: Semantics(
         label:
             '${store.name} store, ${withinReach ? "within reach" : "not within reach"}',
@@ -102,6 +106,7 @@ class CircularLayout extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
+              customBorder: const CircleBorder(),
               onTap: () {
                 Navigator.push(
                   context,
@@ -114,7 +119,6 @@ class CircularLayout extends StatelessWidget {
                   ),
                 );
               },
-              customBorder: const CircleBorder(),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0.0, end: 1.0),
                 duration: const Duration(milliseconds: 300),
@@ -126,32 +130,67 @@ class CircularLayout extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // boba-ball image
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: const BoxDecoration(shape: BoxShape.circle),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/boba_ball.png',
-                          fit: BoxFit.cover,
+                    // 1) Frosted-glass outer shell (more transparent)
+                    ClipOval(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.black.withOpacity(0.1)
+                                : Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.1)
+                                  : Colors.white.withOpacity(0.2),
+                              width: 1.5,
+                            ),
+                          ),
                         ),
                       ),
                     ),
 
-                    // store name label
-                    Center(
+                    // 2) Inner gradient with transparent center, colored edges
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          center: Alignment(-0.4, -0.4),
+                          radius: 0.8,
+                          stops: [0.0, 0.7, 1.0],
+                          colors: isDark
+                              ? [
+                                  Colors.transparent,
+                                  Color(0xFF3B1052).withOpacity(0.6),
+                                  Color(0xFF5A189A).withOpacity(0.6),
+                                ]
+                              : [
+                                  Colors.transparent,
+                                  Color(0xFFB8E1FF).withOpacity(0.6),
+                                  Color.fromARGB(255, 199, 115, 147).withOpacity(0.6),
+                                ],
+                        ),
+                      ),
+                    ),
+                    // 3) Store name label
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Text(
                         store.name,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
                           shadows: [
                             Shadow(
                               color: Colors.black38,
-                              offset: Offset(1, 1),
+                              offset: Offset(0, 1),
                               blurRadius: 2,
                             ),
                           ],
@@ -159,7 +198,7 @@ class CircularLayout extends StatelessWidget {
                       ),
                     ),
 
-                    // grey overlay if out-of-reach
+                    // 4) Grey overlay if out-of-reach
                     if (!withinReach)
                       Container(
                         width: 60,

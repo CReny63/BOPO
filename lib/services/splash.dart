@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:test/services/theme_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -11,7 +13,6 @@ class SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Wait for 3 seconds before navigating to the login page.
     Future.delayed(const Duration(seconds: 4), _navigateToLogin);
   }
 
@@ -21,37 +22,48 @@ class SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
-      // Simple gradient background.
+      // Make the scaffold itself adapt so status bar etc. match
+      backgroundColor: isDark ? Colors.black : Colors.white,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFF1ECE9), // Light warm gray.
-              Color(0xFFFFFFFF), // White.
-            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
+            colors: isDark
+                ? [
+                    Color(0xFF202020), // very dark gray
+                    Color(0xFF000000), // black
+                  ]
+                : [
+                    Color(0xFFF1ECE9), // light warm gray
+                    Color(0xFFFFFFFF), // white
+                  ],
           ),
         ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 "BOPO",
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white70 : Colors.black87,
                 ),
               ),
               const SizedBox(height: 20),
-              // Display the capy_boba.png image.
               Image.asset(
                 'assets/capy_boba.png',
-                width: 100, // Adjust width as needed.
-                height: 100, // Adjust height as needed.
+                width: 100,
+                height: 100,
+                color: isDark ? Colors.white70 : null,
+                colorBlendMode:
+                    isDark ? BlendMode.modulate : BlendMode.dst, 
               ),
             ],
           ),

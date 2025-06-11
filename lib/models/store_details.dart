@@ -385,79 +385,85 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen>
 
                     // Rotating coin (spinner)
                     AnimatedBuilder(
-                      animation: _spinAnimation,
-                      // coinWidget is provided as the `child` so we don’t rebuild its subtree every frame
-                      child: Container(
-                        width: 140,
-                        height: 140,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: theme.isDarkMode
-                                ? [Colors.grey.shade700, Colors.grey.shade900]
-                                : [
-                                    Colors.yellow.shade300,
-                                    Colors.orange.shade700
-                                  ],
-                            center: const Alignment(-0.3, -0.3),
-                            radius: 0.8,
-                          ),
-                          border: Border.all(
-                            color: theme.isDarkMode
-                                ? Colors.grey.shade800
-                                : Colors.brown.shade700,
-                            width: 4,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.isDarkMode
-                                  ? Colors.black54
-                                  : Colors.grey.shade400,
-                              blurRadius: 10,
-                              offset: const Offset(4, 4),
-                            ),
-                            BoxShadow(
-                              color: theme.isDarkMode
-                                  ? Colors.grey.shade800
-                                  : Colors.white70,
-                              blurRadius: 5,
-                              offset: const Offset(-4, -4),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.store.name,
-                            textAlign: TextAlign.center,
-                            style: theme.isDarkMode
-                                ? const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  )
-                                : const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                          ),
-                        ),
-                      ),
-                      builder: (context, coinWidget) {
-                        final angle = _isSpinning ? _spinAnimation.value : 0.0;
+                      animation: _spinController,
+                      builder: (context, child) {
+                        // 6 full spins: controller.value (0→1) × 6 × 2π
+                        final angle =
+                            _isSpinning ? _spinController.value * 3 * pi : 0.0;
                         final matrix = Matrix4.identity()
                           ..setEntry(3, 2, 0.005)
                           ..rotateY(angle);
+
                         return Transform(
                           transform: matrix,
                           alignment: Alignment.center,
                           child: GestureDetector(
                             onTap: _onCircleTap,
-                            child: coinWidget,
+                            child: Container(
+                              width: 140,
+                              height: 140,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: theme.isDarkMode
+                                      ? [
+                                          Colors.grey.shade700,
+                                          Colors.grey.shade900
+                                        ]
+                                      : [
+                                          Colors.yellow.shade300,
+                                          Colors.orange.shade700
+                                        ],
+                                  center: const Alignment(-0.3, -0.3),
+                                  radius: 0.8,
+                                ),
+                                border: Border.all(
+                                  color: theme.isDarkMode
+                                      ? Colors.grey.shade800
+                                      : Colors.brown.shade700,
+                                  width: 4,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.isDarkMode
+                                        ? Colors.black54
+                                        : Colors.grey.shade400,
+                                    blurRadius: 10,
+                                    offset: const Offset(4, 4),
+                                  ),
+                                  BoxShadow(
+                                    color: theme.isDarkMode
+                                        ? Colors.grey.shade800
+                                        : Colors.white70,
+                                    blurRadius: 5,
+                                    offset: const Offset(-4, -4),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  widget.store.name,
+                                  textAlign: TextAlign.center,
+                                  style: theme.isDarkMode
+                                      ? const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        )
+                                      : const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                ),
+                              ),
+                            ),
                           ),
                         );
                       },
                     ),
+
+//
 
                     // ── Coin bubbles: random dx, float upward ────────
                     AnimatedBuilder(
