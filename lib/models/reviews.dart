@@ -2,17 +2,12 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:provider/provider.dart';
 import 'package:test/models/bottom_bar.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import 'package:test/locations/boba_store.dart';
 import 'package:test/models/store_details.dart';
-import 'package:test/services/theme_provider.dart';
 import 'package:test/widgets/app_bar_content.dart';
 
 class StoresPage extends StatefulWidget {
@@ -335,14 +330,14 @@ class StoreCard extends StatelessWidget {
                       softWrap: true,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'Global Visits: ${store.visits}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color:
-                            isDarkMode ? Colors.white70 : Colors.grey.shade700,
-                      ),
-                    ),
+                    // Text(
+                    //   'Global Visits: ${store.visits}',
+                    //   style: TextStyle(
+                    //     fontSize: 12,
+                    //     color:
+                    //         isDarkMode ? Colors.white70 : Colors.grey.shade700,
+                    //   ),
+                    // ),
                     FutureBuilder<DataSnapshot>(
                       future: FirebaseDatabase.instance
                           .ref()

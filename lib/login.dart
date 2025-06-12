@@ -17,6 +17,8 @@ class _LoginPageState extends State<LoginPage> {
   final _emailCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
   final _confirmPwCtrl = TextEditingController();
+  bool _showPassword = false; //eye of password
+  bool _showConfirmPassword = false; //eye of password
   String? _errorText;
   int _tabIndex = 0; // 0 = Sign In, 1 = Sign Up
   final AuthService _auth = AuthService();
@@ -40,7 +42,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   bool get _isDark => widget.themeProvider.isDarkMode;
-  Color get _primary => _isDark ? const Color.fromARGB(255, 191, 148, 135) : const Color.fromARGB(255, 191, 148, 135);
+  Color get _primary => _isDark ? const Color.fromARGB(255, 230, 169, 113) : const Color.fromARGB(255, 122, 79, 66);
   Color get _bg => _isDark ? Colors.black : Colors.white;
 
   Future<void> _signIn() async {
@@ -84,12 +86,10 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _google() async {
     try {
       final userCred = await _auth.signInWithGoogle();
-      if (userCred != null) {
-        await _saveCreds(userCred.user!.email ?? '', '');
-        Navigator.pushReplacementNamed(context, '/splash2',
-            arguments: userCred.user!.uid);
-      }
-    } catch (_) {}
+      await _saveCreds(userCred.user!.email ?? '', '');
+      Navigator.pushReplacementNamed(context, '/splash2',
+          arguments: userCred.user!.uid);
+        } catch (_) {}
   }
 
   @override
@@ -227,19 +227,55 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _lineField(TextEditingController c, String hint, bool obscure,
-      {String? helper}) {
-    return TextField(
-      controller: c,
-      obscureText: obscure,
-      decoration: InputDecoration(
-        hintText: hint,
-        helperText: helper,
-        border: InputBorder.none,
-      ),
-      style: TextStyle(color: _isDark ? Colors.white : Colors.black),
-    );
-  }
+ Widget _lineField(TextEditingController c, String hint, bool obscure,
+    {String? helper}) {
+  bool isConfirm = hint.toLowerCase().contains('confirm');
+
+  return StatefulBuilder(
+    builder: (context, setLocalState) {
+      return TextField(
+        controller: c,
+        obscureText: obscure
+            ? !(isConfirm ? _showConfirmPassword : _showPassword)
+            : false,
+        decoration: InputDecoration(
+          hintText: hint,
+          helperText: helper,
+          border: const UnderlineInputBorder(),
+          enabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: _isDark ? Colors.white54 : Colors.black45),
+          ),
+          focusedBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: _primary, width: 2),
+          ),
+          suffixIcon: obscure
+              ? IconButton(
+                  icon: Icon( size: 19,
+                    (isConfirm ? _showConfirmPassword : _showPassword)
+                        ? Icons.visibility
+                        : Icons.visibility_off,
+                    color: _isDark ? Colors.white54 : Colors.black45,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      if (isConfirm) {
+                        _showConfirmPassword = !_showConfirmPassword;
+                      } else {
+                        _showPassword = !_showPassword;
+                      }
+                    });
+                    setLocalState(() {});
+                  },
+                )
+              : null,
+        ),
+        style: TextStyle(color: _isDark ? Colors.white : Colors.black),
+      );
+    },
+  );
+}
+
+
 
   Widget _actionButton(String label, VoidCallback onTap, {String? icon}) {
     return SizedBox(

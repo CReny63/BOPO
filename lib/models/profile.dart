@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fbAuth;
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:test/locations/boba_store.dart';
 import 'package:test/models/bottom_bar.dart';
@@ -110,38 +111,50 @@ class _SavedStoresScreenState extends State<SavedStoresScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Saved Stores')),
-      body: _allStores.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : _favoriteStores.isEmpty
-              ? const Center(child: Text('No saved stores yet.'))
-              : ListView.builder(
-                  itemCount: _favoriteStores.length,
-                  itemBuilder: (ctx, i) {
-                    final store = _favoriteStores[i];
-                    return ListTile(
-                        leading: const Icon(Icons.store),
-                        title: Text(store.name),
-                        subtitle: Text('${store.city}, ${store.state}'),
-                        trailing: const Icon(Icons.star, color: Colors.amber),
-                        onTap: () {
-                          if (_userPosition != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => StoreDetailsScreen(
-                                  store: store,
-                                  userPosition: _userPosition!,
-                                  userId: widget.uid,
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                        );
+  appBar: AppBar(
+    toolbarHeight: 44,
+    title: Text(
+      'Saved Stores',
+      style: GoogleFonts.mavenPro(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+    ),
+    centerTitle: true,
+  ),
+  body: _allStores.isEmpty
+      ? const Center(child: CircularProgressIndicator())
+      : _favoriteStores.isEmpty
+          ? const Center(child: Text('No saved stores yet.'))
+          : ListView.builder(
+              itemCount: _favoriteStores.length,
+              itemBuilder: (ctx, i) {
+                final store = _favoriteStores[i];
+                return ListTile(
+                  leading: const Icon(Icons.store),
+                  title: Text(store.name),
+                  subtitle: Text('${store.city}, ${store.state}'),
+                  trailing: const Icon(Icons.star, color: Colors.amber),
+                  onTap: () {
+                    if (_userPosition != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoreDetailsScreen(
+                            store: store,
+                            userPosition: _userPosition!,
+                            userId: widget.uid,
+                          ),
+                        ),
+                      );
+                    }
                   },
-                ),
-    );
+                );
+              },
+            ),
+);
+
   }
 }
 
@@ -162,43 +175,109 @@ class ProfilePage extends StatelessWidget {
     required this.toggleTheme,
   }) : super(key: key);
 
-  void _showManageAccountDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Manage Account'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('Username'),
-                subtitle: Text(username),
-              ),
-              ListTile(
-                title: const Text('Email'),
-                subtitle: Text(email),
-              ),
-              ListTile(
-                title: const Text('Password'),
-                subtitle: Text(maskedPassword),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Reset Password'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+//   void _showManageAccountDialog(BuildContext context) {
+//   final isDark = Theme.of(context).brightness == Brightness.dark;
+//   final textColor = isDark ? Colors.white : Colors.black;
+//   final secondaryColor = isDark ? Colors.white70 : Colors.black87;
+//   final backgroundColor = isDark ? Colors.grey[900] : Colors.white;
+
+//   showDialog(
+//     context: context,
+//     builder: (context) {
+//       bool showPassword = false;
+
+//       return StatefulBuilder(builder: (context, setState) {
+//         return AlertDialog(
+//           backgroundColor: backgroundColor,
+//           title: Text('Manage Account', style: TextStyle(color: textColor)),
+//           content: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               ListTile(
+//                 title: Text('Email', style: TextStyle(color: textColor)),
+//                 subtitle: Text(email, style: TextStyle(color: secondaryColor)),
+//               ),
+//               ListTile(
+//                 title: Text('Password', style: TextStyle(color: textColor)),
+//                 subtitle: Row(
+//                   children: [
+//                     Expanded(
+//                       child: Text(
+//                         showPassword ? 'mysecretpassword' : maskedPassword,
+//                         style: TextStyle(color: secondaryColor),
+//                       ),
+//                     ),
+//                     IconButton(
+//                       icon: Icon(
+//                         showPassword ? Icons.visibility : Icons.visibility_off,
+//                         color: isDark ? Colors.white54 : Colors.black45,
+//                       ),
+//                       onPressed: () {
+//                         setState(() => showPassword = !showPassword);
+//                       },
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//           actions: [
+//             TextButton(
+//               onPressed: () async {
+//                 Navigator.of(context).pop(); // Dismiss immediately
+//                 try {
+//                   await fbAuth.FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+//                   if (!context.mounted) return;
+//                   showDialog(
+//                     context: context,
+//                     builder: (_) => AlertDialog(
+//                       backgroundColor: backgroundColor,
+//                       title: Text('Success', style: TextStyle(color: textColor)),
+//                       content: Text('Reset email sent to $email.',
+//                           style: TextStyle(color: secondaryColor)),
+//                       actions: [
+//                         TextButton(
+//                           onPressed: () => Navigator.of(context).pop(),
+//                           child: Text('OK', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+//                         )
+//                       ],
+//                     ),
+//                   );
+//                 } catch (e) {
+//                   if (!context.mounted) return;
+//                   showDialog(
+//                     context: context,
+//                     builder: (_) => AlertDialog(
+//                       backgroundColor: backgroundColor,
+//                       title: Text('Error', style: TextStyle(color: textColor)),
+//                       content: Text(
+//                           'Could not send reset email. Make sure email is valid and user is logged in.',
+//                           style: TextStyle(color: secondaryColor)),
+//                       actions: [
+//                         TextButton(
+//                           onPressed: () => Navigator.of(context).pop(),
+//                           child: Text('OK', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+//                         )
+//                       ],
+//                     ),
+//                   );
+//                 }
+//               },
+//               child: Text('Reset Password',
+//                   style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+//             ),
+//             TextButton(
+//               onPressed: () => Navigator.of(context).pop(),
+//               child: Text('Close',
+//                   style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+//             ),
+//           ],
+//         );
+//       });
+//     },
+//   );
+// }
+
 
   void _showPrivacyDialog(BuildContext context) {
     showDialog(
@@ -290,12 +369,12 @@ class ProfilePage extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     return ListView(
       children: [
-        _buildListTile(
-          'Manage Account',
-          'View and update your account details',
-          Icons.account_circle,
-          () => _showManageAccountDialog(context),
-        ),
+        // _buildListTile(
+        //   'Manage Account',
+        //   'View and update your account details',
+        //   Icons.account_circle,
+        //   () => _showManageAccountDialog(context),
+        // ),
         _buildListTile(
           'Rate Us',
           'Leave a review on the app store',

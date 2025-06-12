@@ -51,13 +51,20 @@ class RewardSplashPage extends StatelessWidget {
           children: [
             Image.asset(stickerAsset, width: 120, height: 120),
             const SizedBox(height: 20),
-            Text(
-              '+$reward coins!',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.amberAccent : Colors.orangeAccent,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '+$reward',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.amberAccent : Colors.orangeAccent,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Image.asset('assets/coin_boba.png', width: 24, height: 24),
+              ],
             ),
             const SizedBox(height: 12),
             if (isNewSticker)
@@ -133,9 +140,14 @@ class BoxDetailPage extends StatelessWidget {
                 onConfirm();
                 Navigator.pop(context);
               },
-              child: const Text(
+              child: Text(
                 'Open Box',
-                style: TextStyle(fontSize: 16),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.black
+                      : Colors.white,
+                ),
               ),
             ),
           ],
@@ -248,7 +260,15 @@ class _StorePageState extends State<StorePage> {
       return;
     }
 
-    final rewardCoins = Random().nextInt(3) + 3; // 3..5 coins
+    int rewardCoins;
+    if (box.title == 'Bronze Box') {
+      rewardCoins = Random().nextInt(3) + 1; // 1–3
+    } else if (box.title == 'Silver Box') {
+      rewardCoins = Random().nextInt(3) + 3; // 3–5
+    } else {
+      rewardCoins = Random().nextInt(4) + 5; // 5–8
+    }
+
     await _userRef.child('coins').set(_coins - box.cost + rewardCoins);
 
     // Determine sticker ID pool:
@@ -456,7 +476,8 @@ class _StorePageState extends State<StorePage> {
                                   height: 15,
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
-                                    color: isDark ? Colors.purple : Colors.orange,
+                                    color:
+                                        isDark ? Colors.purple : Colors.orange,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Text(

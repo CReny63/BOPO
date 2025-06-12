@@ -1,20 +1,19 @@
 import 'dart:async';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:test/services/theme_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Represents a single mission.
 class Mission {
   final String title;
   final String description;
   final int goal;
   final int current;
   final int reward;
-  final int id; // Unique mission ID for tracking
+  final int id;
 
   const Mission({
     required this.id,
@@ -24,9 +23,16 @@ class Mission {
     required this.goal,
     required this.reward,
   });
-}
 
-/// A segmented progress bar that never overflows.
+  factory Mission.fromJson(Map<String, dynamic> json) => Mission(
+        id: json['id'],
+        title: json['title'],
+        description: json['description'],
+        current: json['current'],
+        goal: json['goal'],
+        reward: json['reward'],
+      );
+}
 class SegmentedProgressIndicator extends StatelessWidget {
   final int current;
   final int goal;
@@ -39,50 +45,58 @@ class SegmentedProgressIndicator extends StatelessWidget {
     this.spacing = 5.0,
   }) : super(key: key);
 
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final filledColor = isDark ? Colors.blueAccent : Colors.green;
     final emptyColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
 
+    // 🔁 Use progress bar if there are too many segments
+    if (goal > 10) {
+      final progress = current / goal;
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: progress.clamp(0.0, 1.0),
+          minHeight: 8,
+          valueColor: AlwaysStoppedAnimation<Color>(filledColor),
+          backgroundColor: emptyColor,
+        ),
+      );
+    }
+
+    // 🔲 Otherwise use segmented dots
     return LayoutBuilder(builder: (context, constraints) {
       final available = constraints.maxWidth;
-      // start with desired spacing
       double usedSpacing = spacing;
-      // compute raw segment width
       double rawSegment = (available - spacing * (goal - 1)) / goal;
-      // if that would be negative (overflow), remove spacing and divide evenly
       if (rawSegment < 0) {
         usedSpacing = 0;
         rawSegment = available / goal;
       }
       final segW = rawSegment.clamp(0.0, double.infinity);
-
-      // wrap in horizontal scroll to avoid any overflow
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: List.generate(goal * 2 - 1, (i) {
-            if (i.isEven) {
-              final idx = i ~/ 2;
-              return Container(
-                width: segW,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: idx < current ? filledColor : emptyColor,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              );
-            } else {
-              return SizedBox(width: usedSpacing);
-            }
-          }),
-        ),
+      return Row(
+        children: List.generate(goal * 2 - 1, (i) {
+          if (i.isEven) {
+            final idx = i ~/ 2;
+            return Container(
+              width: segW,
+              height: 8,
+              decoration: BoxDecoration(
+                color: idx < current ? filledColor : emptyColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          } else {
+            return SizedBox(width: usedSpacing);
+          }
+        }),
       );
     });
   }
 }
 
-/// A flipping badge for historic visits (unchanged from before).
+
 class BadgeCoin extends StatefulWidget {
   final String storeId;
   final String timestamp;
@@ -108,8 +122,8 @@ class _BadgeCoinState extends State<BadgeCoin>
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(vsync: this, duration: Duration(milliseconds: 800));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800));
     _animation = Tween<double>(begin: 0, end: pi).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     )..addStatusListener((status) {
@@ -160,8 +174,8 @@ class _BadgeCoinState extends State<BadgeCoin>
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: isDark
-              ? LinearGradient(colors: [Color(0xFF4A148C), Color(0xFF6A1B9A)])
-              : LinearGradient(colors: [Color(0xFF81D4FA), Color(0xFF00B0FF)]),
+              ? const LinearGradient(colors: [Color(0xFF4A148C), Color(0xFF6A1B9A)])
+              : const LinearGradient(colors: [Color(0xFF81D4FA), Color(0xFF00B0FF)]),
           border: Border.all(
             color: isDark ? Colors.black : Colors.white,
             width: size * 0.025,
@@ -170,7 +184,7 @@ class _BadgeCoinState extends State<BadgeCoin>
             BoxShadow(
               color: Colors.black.withOpacity(0.5),
               blurRadius: 6,
-              offset: Offset(2, 3),
+              offset: const Offset(2, 3),
             ),
           ],
         ),
@@ -182,9 +196,8 @@ class _BadgeCoinState extends State<BadgeCoin>
       Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.store,
-              size: size * 0.25, color: isDark ? Colors.white : Colors.black),
-          SizedBox(height: 4),
+          Icon(Icons.store, size: size * 0.25, color: isDark ? Colors.white : Colors.black),
+          const SizedBox(height: 4),
           Text(
             info['brand']!,
             style: TextStyle(
@@ -213,7 +226,7 @@ class _BadgeCoinState extends State<BadgeCoin>
                 color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               info['location']!,
               style: TextStyle(
@@ -247,6 +260,7 @@ class _BadgeCoinState extends State<BadgeCoin>
     );
   }
 }
+
 
 /// The main Missions screen.
 class MissionsScreen extends StatefulWidget {
@@ -394,71 +408,6 @@ class _MissionsScreenState extends State<MissionsScreen> {
     super.dispose();
   }
 
-  // Future<void> _checkLocation() async {
-  //   Position pos;
-  //   try {
-  //     pos = await Geolocator.getCurrentPosition(
-  //         desiredAccuracy: LocationAccuracy.high);
-  //   } catch (_) {
-  //     return;
-  //   }
-  //   final dist = Geolocator.distanceBetween(
-  //     pos.latitude,
-  //     pos.longitude,
-  //     widget.storeLatitude,
-  //     widget.storeLongitude,
-  //   );
-
-  //   if (dist <= thresholdMeters && !_visitRegistered) {
-  //     _visitTimer ??= Timer(const Duration(seconds: 30), () async {
-  //       final updated = await Geolocator.getCurrentPosition(
-  //           desiredAccuracy: LocationAccuracy.high);
-  //       final updatedDist = Geolocator.distanceBetween(
-  //         updated.latitude,
-  //         updated.longitude,
-  //         widget.storeLatitude,
-  //         widget.storeLongitude,
-  //       );
-  //       if (updatedDist <= thresholdMeters) {
-  //         await _registerVisit(updated);
-  //         setState(() => _visitRegistered = true);
-  //       }
-  //       _visitTimer = null;
-  //     });
-  //   } else {
-  //     _visitTimer?.cancel();
-  //     _visitTimer = null;
-  //   }
-  // }
-
-  // Future<void> _registerVisit(Position pos) async {
-  //   final visitsRef = FirebaseDatabase.instance
-  //       .ref()
-  //       .child('userVisits')
-  //       .child(widget.userId)
-  //       .child(widget.storeId);
-  //   final snap = await visitsRef.get();
-  //   if (!snap.exists) {
-  //     await visitsRef.set({
-  //       'timestamp': DateTime.now().toIso8601String(),
-  //       'latitude': pos.latitude,
-  //       'longitude': pos.longitude,
-  //     });
-  //     final storeRef = FirebaseDatabase.instance
-  //         .ref()
-  //         .child('stores')
-  //         .child(widget.storeCity)
-  //         .child(widget.storeId);
-  //     await storeRef.runTransaction((data) {
-  //       if (data != null) {
-  //         final map = Map<String, dynamic>.from(data as Map);
-  //         map['visits'] = (map['visits'] ?? 0) + 1;
-  //         return Transaction.success(map);
-  //       }
-  //       return Transaction.success(data);
-  //     });
-  //   }
-  // }
   /// Builds a combined mission list (visits + sticker collections).
   List<Mission> buildAllMissions(int uniqueStoreVisits) {
     // 1) “Visit X Boba Stores” missions
@@ -600,11 +549,22 @@ class _MissionsScreenState extends State<MissionsScreen> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: isDark ? Colors.black : Colors.white,
+        backgroundColor: isDark ? const Color.fromARGB(255, 0, 0, 0) : const Color.fromARGB(255, 255, 255, 255),
         appBar: AppBar(
-          title: const Text('Missions'),
-          centerTitle: true,
-        ),
+  toolbarHeight: 44,
+  backgroundColor: widget.themeProvider.isDarkMode ? Colors.deepPurple : Colors.orange,
+  elevation: 1,
+  title: Text(
+    'Missions',
+    style: GoogleFonts.mavenPro(
+      fontSize: 26,
+     color: widget.themeProvider.isDarkMode ? const Color.fromARGB(255, 0, 0, 0) : const Color.fromARGB(255, 255, 255, 255),
+
+    ),
+  ),
+  centerTitle: true,
+),
+
         body: (_rewardsLoaded && _stickersLoaded)
             ? StreamBuilder<DatabaseEvent>(
                 stream: uniqueRef.onValue,
@@ -732,11 +692,18 @@ class _MissionsScreenState extends State<MissionsScreen> {
               )
             : const Center(child: CircularProgressIndicator()),
         bottomNavigationBar: Container(
-          color: isDark ? Colors.black : Colors.white,
-          child: const TabBar(
-            tabs: [Tab(text: 'Active'), Tab(text: 'Completed')],
-          ),
-        ),
+  color: widget.themeProvider.isDarkMode ? Colors.black : Colors.white,
+  child: TabBar(
+    indicatorColor: widget.themeProvider.isDarkMode ? Colors.blueAccent : Colors.deepPurple,
+    labelColor: widget.themeProvider.isDarkMode ? Colors.white : Colors.black,
+    unselectedLabelColor: widget.themeProvider.isDarkMode ? Colors.white54 : Colors.black54,
+    tabs: const [
+      Tab(text: 'Active'),
+      Tab(text: 'Completed'),
+    ],
+  ),
+),
+
       ),
     );
   }
@@ -748,8 +715,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
         ? (isDark ? Colors.white : Colors.black)
         : (isDark ? Colors.grey : Colors.grey.shade600);
 
-    final lockIcon = Icon(Icons.lock,
-        size: 40, color: isDark ? Colors.black54 : Colors.grey.shade400);
+    // final lockIcon = Icon(Icons.lock,
+    //     size: 40, color: isDark ? Colors.black54 : Colors.grey.shade400);
     final checkIcon = Icon(Icons.check,
         size: 40, color: isDark ? Colors.blueAccent : Colors.green);
 
@@ -852,15 +819,15 @@ class _MissionsScreenState extends State<MissionsScreen> {
       row = Stack(
         children: [
           row,
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: (isDark ? Colors.black : Colors.white).withOpacity(0.6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(child: lockIcon),
-            ),
-          ),
+          // Positioned.fill(
+          //   // child: Container(
+          //   //   decoration: BoxDecoration(
+          //   //     color: (isDark ? Colors.black : Colors.white).withOpacity(0.6),
+          //   //     borderRadius: BorderRadius.circular(12),
+          //   //   ),
+          //   //   child: Center(child: lockIcon),
+          //   // ),
+          // ),
         ],
       );
     } else {
