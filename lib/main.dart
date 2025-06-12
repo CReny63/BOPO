@@ -79,7 +79,7 @@ class _MyAppState extends State<MyApp> {
       builder: (context, themeProvider, child) {
         return MaterialApp(
           title: 'Meta Verse',
-          theme: themeProvider.currentTheme,
+          theme: themeProvider.themeData,
           initialRoute: '/splash', // Start at splash screen.
           routes: {
             '/friends': (context) => const StorePage(),

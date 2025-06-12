@@ -61,7 +61,7 @@ class CircularLayout extends StatelessWidget {
           // User location at center
           Text(
             userLocationText,
-            style: themeProvider.currentTheme.textTheme.bodyMedium,
+            style: themeProvider.themeData.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
           for (int i = 0; i < count; i++)
